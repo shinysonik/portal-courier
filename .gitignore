@@ -1,0 +1,15 @@
+@"
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pdf
+!testdata/**/*.pdf
+events.jsonl
+out/
+.DS_Store
+node_modules/
+*.log
+"@ | Set-Content -Encoding ASCII .gitignore

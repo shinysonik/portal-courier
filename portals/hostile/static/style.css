@@ -1,0 +1,272 @@
+/* GazSfera - legacy corporate style, circa 2010. Intentionally ugly. */
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  color: #222;
+  background: #e8e8e8;
+  line-height: 1.4;
+}
+
+a { color: #003366; }
+a:hover { text-decoration: underline; }
+
+/* Top header: old corporate banner */
+.topbar {
+  background: #003366;
+  color: #fff;
+  padding: 8px 16px;
+  border-bottom: 3px solid #cc9900;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.brand-name {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 18px;
+  font-weight: bold;
+}
+.brand-tag {
+  font-size: 10px;
+  color: #ffcc66;
+  margin-left: 4px;
+}
+.beta-badge {
+  background: #cc0000;
+  color: #fff;
+  font-size: 9px;
+  padding: 1px 6px;
+  margin-left: 8px;
+  font-weight: bold;
+  animation: blink 1.2s infinite;
+}
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: .4; }
+}
+
+.user {
+  margin-left: auto;
+  font-size: 11px;
+  color: #cce0ff;
+}
+.user a { color: #cce0ff; }
+
+/* Warning banner - always there */
+.warn-banner {
+  background: #fff3cd;
+  color: #664d03;
+  border: 1px solid #ffecb5;
+  padding: 6px 16px;
+  font-size: 11px;
+  text-align: center;
+}
+
+/* Main container */
+.container {
+  max-width: 960px;
+  margin: 12px auto;
+  background: #fff;
+  border: 1px solid #999;
+  padding: 16px;
+}
+
+.breadcrumb {
+  font-size: 11px;
+  color: #666;
+  margin-bottom: 10px;
+}
+.breadcrumb a { color: #003366; }
+
+h1 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 18px;
+  margin: 4px 0 12px;
+  color: #003366;
+  border-bottom: 2px solid #003366;
+  padding-bottom: 6px;
+}
+h2 {
+  font-size: 14px;
+  color: #003366;
+  margin: 16px 0 8px;
+}
+
+.section {
+  background: #f5f5f5;
+  border: 1px solid #ccc;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+/* Forms */
+label {
+  display: inline-block;
+  min-width: 140px;
+  font-weight: bold;
+  font-size: 12px;
+  color: #333;
+}
+.req { color: #cc0000; }
+input[type="text"], input[type="password"], select {
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  padding: 4px 6px;
+  border: 1px solid #888;
+  background: #fff;
+  width: 220px;
+}
+input:focus, select:focus {
+  outline: 1px dotted #000;
+  outline-offset: 1px;
+}
+.form-row {
+  margin-bottom: 8px;
+}
+.btn {
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  padding: 5px 14px;
+  border: 1px solid #003366;
+  background: #003366;
+  color: #fff;
+  cursor: pointer;
+  font-weight: bold;
+}
+.btn:hover { background: #002244; }
+.btn.secondary {
+  background: #e0e0e0;
+  color: #333;
+  border: 1px solid #888;
+  font-weight: normal;
+}
+
+.help {
+  font-size: 11px;
+  color: #666;
+  margin-left: 144px;
+  margin-top: 2px;
+}
+.alert {
+  background: #f8d7da;
+  border: 1px solid #f5c2c7;
+  color: #842029;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+
+/* Tables - the old way, with full borders */
+table.data {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  background: #fff;
+  border: 1px solid #999;
+}
+table.data th {
+  background: #d6dce4;
+  border: 1px solid #999;
+  padding: 6px 8px;
+  text-align: left;
+  font-weight: bold;
+  color: #003366;
+}
+table.data td {
+  border: 1px solid #ccc;
+  padding: 6px 8px;
+  vertical-align: top;
+}
+table.data tr:nth-child(even) td { background: #fafafa; }
+table.data td.num { text-align: right; }
+table.data td.center { text-align: center; }
+
+.link-download {
+  font-size: 11px;
+  color: #003366;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Empty state */
+.empty {
+  text-align: center;
+  padding: 24px;
+  color: #666;
+  background: #f9f9f9;
+  border: 1px dashed #ccc;
+}
+
+/* Footer - long legal text, small */
+.footer {
+  max-width: 960px;
+  margin: 12px auto 40px;
+  padding: 12px 16px;
+  background: #ddd;
+  border: 1px solid #999;
+  font-size: 10px;
+  color: #444;
+  line-height: 1.5;
+}
+.footer p { margin: 4px 0; }
+.footer a { color: #003366; }
+
+/* Cookie banner - fixed bottom, annoying */
+.cookie-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #222;
+  color: #eee;
+  padding: 10px 16px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  z-index: 999;
+}
+.cookie-banner a { color: #7fb2ff; }
+.cookie-banner button {
+  background: #003366;
+  color: #fff;
+  border: 0;
+  padding: 5px 14px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.cookie-banner.hidden { display: none; }
+
+/* Login - very basic */
+.login-wrap {
+  max-width: 480px;
+  margin: 40px auto;
+}
+.login-box {
+  border: 2px solid #003366;
+  padding: 0;
+  background: #fff;
+}
+.login-header {
+  background: #003366;
+  color: #fff;
+  padding: 10px 16px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 16px;
+  font-weight: bold;
+  border-bottom: 2px solid #cc9900;
+}
+.login-body { padding: 20px; }
+.login-footer {
+  background: #f0f0f0;
+  padding: 8px 16px;
+  font-size: 10px;
+  color: #666;
+  border-top: 1px solid #ccc;
+}

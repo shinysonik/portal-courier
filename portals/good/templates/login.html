@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Sign in · EnergoPlus{% endblock %}
+
+{% block content %}
+<div class="login-wrap">
+  <form class="card login" method="post" action="/login" autocomplete="on">
+    <h1>Sign in</h1>
+    <p class="muted">Client portal for business customers</p>
+
+    {% if error %}<div class="alert">{{ error }}</div>{% endif %}
+
+    <label for="username">Username</label>
+    <input id="username" name="username" autocomplete="username" required autofocus>
+
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required>
+
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+
+    <button type="submit">Sign in</button>
+
+    <p class="hint">
+      Forgot password? Contact
+      <a href="mailto:{{ vendor.email }}">{{ vendor.email }}</a>
+    </p>
+  </form>
+</div>
+{% endblock %}

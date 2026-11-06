@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Invoice {{ invoice.id }} - GazSfera{% endblock %}
+
+{% block header_right %}
+<div class="user">
+  Signed in as <b>{{ username }}</b> | <a href="/logout">Sign out</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="/dashboard">Home</a> &gt;
+  <a href="/invoices?year={{ year }}&month={{ month }}">Invoices {{ month }}/{{ year }}</a> &gt;
+  <b>{{ invoice.id }}</b>
+</div>
+
+<h1>VAT Invoice {{ invoice.id }}</h1>
+
+<div class="section">
+  <table style="width:100%;font-size:12px;">
+    <tr>
+      <td style="width:50%;vertical-align:top;">
+        <b>Seller:</b><br>
+        {{ vendor.name }}<br>
+        {{ vendor.address }}<br>
+        VAT ID: {{ vendor.nip }}<br>
+        IBAN: {{ vendor.iban }}
+      </td>
+      <td style="width:50%;vertical-align:top;">
+        <b>Buyer:</b><br>
+        {{ customer.name }}<br>
+        {{ customer.address }}<br>
+        VAT ID: {{ customer.nip }}
+      </td>
+    </tr>
+  </table>
+</div>
+
+<div class="section">
+  <b>Issue date:</b> {{ invoice.issue_date }} &nbsp;&nbsp;
+  <b>Due date:</b> {{ invoice.due_date }} &nbsp;&nbsp;
+  <b>Period:</b> {{ invoice.period }} &nbsp;&nbsp;
+  <b>PO:</b> {{ invoice.po }} &nbsp;&nbsp;
+  <b>Status:</b> {{ invoice.status }}
+</div>
+
+<h2>Invoice items</h2>
+<table class="data">
+  <thead>
+    <tr>
+      <th style="width:40px;">No.</th>
+      <th>Item description</th>
+      <th style="width:70px;">Quantity</th>
+      <th style="width:60px;">Unit</th>
+      <th style="width:100px;">Unit price</th>
+      <th style="width:100px;">Net amount</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in invoice.items %}
+    <tr>
+      <td class="center">{{ loop.index }}</td>
+      <td>{{ item.description }}</td>
+      <td class="num">{{ item.quantity }}</td>
+      <td>{{ item.unit }}</td>
+      <td class="num">{{ "%.2f"|format(item.unit_price) }}</td>
+      <td class="num">{{ "%.2f"|format(item.net) }}</td>
+    </tr>
+    {% endfor %}
+    <tr>
+      <td colspan="5" style="text-align:right;"><b>Net total:</b></td>
+      <td class="num"><b>{{ "%.2f"|format(invoice.amount_net) }} {{ invoice.currency }}</b></td>
+    </tr>
+    <tr>
+      <td colspan="5" style="text-align:right;"><b>VAT (23%):</b></td>
+      <td class="num"><b>{{ "%.2f"|format(invoice.amount_vat) }} {{ invoice.currency }}</b></td>
+    </tr>
+    <tr>
+      <td colspan="5" style="text-align:right;"><b>Amount due:</b></td>
+      <td class="num" style="font-size:14px;"><b>{{ "%.2f"|format(invoice.amount_gross) }} {{ invoice.currency }}</b></td>
+    </tr>
+  </tbody>
+</table>
+
+<p style="margin-top:14px;font-size:11px;">
+  <span class="link-download" onclick="confirmDownload('{{ invoice.id }}', '{{ year }}', '{{ month }}')">Download invoice as PDF</span>
+</p>
+
+<p style="margin-top:14px;">
+  <a href="/invoices?year={{ year }}&month={{ month }}">&laquo; Back to invoice list</a>
+</p>
+
+<script>
+function confirmDownload(id, year, month) {
+  if (confirm('Are you sure you want to download invoice ' + id + '?')) {
+    window.location.href = '/invoice/' + id + '/download?year=' + year + '&month=' + month;
+  }
+}
+</script>
+{% endblock %}

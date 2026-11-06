@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}GazSfera - Invoicing System{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-name">GazSfera</span>
+    <span class="brand-tag">INVOICING SYSTEM</span>
+    <span class="beta-badge">BETA</span>
+    {% block header_right %}{% endblock %}
+  </div>
+</header>
+
+<div class="warn-banner">
+  Your session will expire in 15 minutes. <a href="#">Extend session</a>
+</div>
+
+<main class="container">
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="footer">
+  <p><b>GazSfera S.A.</b>, ul. Gazowa 5, 00-950 Warsaw, Poland, VAT ID: 9876543210, KRS: 0000123456, District Court for the Capital City of Warsaw, Share capital: 5,000,000 PLN fully paid.</p>
+  <p>Invoicing System version 2.1 (BETA). Use of this system constitutes acceptance of the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>. All rights reserved © 2026 GazSfera S.A.</p>
+  <p>For technical issues, contact: <a href="mailto:support@gazsfera.example">support@gazsfera.example</a>, tel. +48 22 987 65 43 (business days, 8:00–16:00).</p>
+</footer>
+
+<div class="cookie-banner" id="cookieBanner">
+  <span>This website uses cookies to ensure proper operation of the service. By continuing to browse, you accept our <a href="#">privacy policy</a>.</span>
+  <button onclick="document.getElementById('cookieBanner').classList.add('hidden')">Accept</button>
+</div>
+
+</body>
+</html>

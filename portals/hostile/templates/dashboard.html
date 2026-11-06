@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Client Panel - GazSfera{% endblock %}
+
+{% block header_right %}
+<div class="user">
+  Signed in as <b>{{ username }}</b> | <a href="/logout">Sign out</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="/dashboard">Home</a> &gt; <b>Client Panel</b>
+</div>
+
+<h1>Client Panel</h1>
+
+<div class="section">
+  <h2>Select billing period</h2>
+  <p style="font-size:11px;color:#666;">
+    To view invoices, select the year and month, then click <b>Show invoices</b>.
+    Invoices are available separately for each billing period.
+  </p>
+  <form method="get" action="/invoices">
+    <div class="form-row">
+      <label>Year <span class="req">*</span></label>
+      <select name="year" required>
+        <option value="">-- select --</option>
+        <option value="2026">2026</option>
+        <option value="2025">2025</option>
+        <option value="2024">2024</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Month <span class="req">*</span></label>
+      <select name="month" required>
+        <option value="">-- select --</option>
+        <option value="01">01 - January</option>
+        <option value="02">02 - February</option>
+        <option value="03">03 - March</option>
+        <option value="04">04 - April</option>
+        <option value="05">05 - May</option>
+        <option value="06">06 - June</option>
+        <option value="07">07 - July</option>
+        <option value="08">08 - August</option>
+        <option value="09">09 - September</option>
+        <option value="10">10 - October</option>
+        <option value="11">11 - November</option>
+        <option value="12">12 - December</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <span style="display:inline-block;min-width:140px;"></span>
+      <button type="submit" class="btn">Show invoices</button>
+    </div>
+  </form>
+</div>
+
+<div class="section" style="background:#fffbe6;border-color:#ffe58f;">
+  <h2 style="margin-top:0;">Notice</h2>
+  <p style="font-size:11px;margin:0;">
+    Invoices for the current month may not be available until the 5th business day of the following month.
+    If you have any questions, please contact the accounting department: <b>accounting@gazsfera.example</b>.
+  </p>
+</div>
+
+{% endblock %}

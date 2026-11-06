@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}{{ invoice.id }} · EnergoPlus{% endblock %}
+
+{% block header_right %}
+<div class="user">
+  Signed in as <b>{{ username }}</b> · <a href="/logout">Sign out</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card invoice-view">
+  <h1>{{ invoice.id }}</h1>
+  <p class="muted">
+    Status:
+    <span class="badge {{ invoice.status|lower }}">{{ invoice.status }}</span>
+    · Period {{ invoice.period }}
+  </p>
+
+  <div class="invoice-meta">
+    <div>
+      <h3>Supplier</h3>
+      <p><b>{{ vendor.name }}</b></p>
+      <p>{{ vendor.address }}</p>
+      <p>NIP: {{ vendor.nip }}</p>
+      <p>IBAN: <span class="mono">{{ vendor.iban }}</span></p>
+    </div>
+    <div>
+      <h3>Bill to</h3>
+      <p><b>{{ customer.name }}</b></p>
+      <p>{{ customer.address }}</p>
+      <p>NIP: {{ customer.nip }}</p>
+    </div>
+    <div>
+      <h3>Dates</h3>
+      <p>Issued: {{ invoice.issue_date }}</p>
+      <p>Due: {{ invoice.due_date }}</p>
+      <p>PO: <span class="mono">{{ invoice.po }}</span></p>
+    </div>
+    <div>
+      <h3>Amount</h3>
+      <p><b>{{ "%.2f"|format(invoice.amount_gross) }} {{ invoice.currency }}</b></p>
+      <p class="muted">net {{ "%.2f"|format(invoice.amount_net) }} + VAT {{ "%.2f"|format(invoice.amount_vat) }}</p>
+    </div>
+  </div>
+
+  <h3>Line items</h3>
+  <table class="items">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Description</th>
+        <th class="num">Qty</th>
+        <th>Unit</th>
+        <th class="num">Unit price</th>
+        <th class="num">Net</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in invoice.items %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ item.description }}</td>
+        <td class="num">{{ item.quantity }}</td>
+        <td>{{ item.unit }}</td>
+        <td class="num">{{ "%.2f"|format(item.unit_price) }}</td>
+        <td class="num">{{ "%.2f"|format(item.net) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="totals">
+    <table>
+      <tr><td>Net total</td><td>{{ "%.2f"|format(invoice.amount_net) }} {{ invoice.currency }}</td></tr>
+      <tr><td>VAT (23%)</td><td>{{ "%.2f"|format(invoice.amount_vat) }} {{ invoice.currency }}</td></tr>
+      <tr class="grand"><td>Amount due</td><td>{{ "%.2f"|format(invoice.amount_gross) }} {{ invoice.currency }}</td></tr>
+    </table>
+  </div>
+
+  <div class="actions">
+    <a href="/invoice/{{ invoice.id }}/download">Download PDF</a>
+    <a href="/dashboard" style="background:transparent;color:#1a4d8f;border:1px solid #1a4d8f;margin-left:8px;">Back to invoices</a>
+  </div>
+</div>
+{% endblock %}
