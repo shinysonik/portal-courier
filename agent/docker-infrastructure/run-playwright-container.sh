@@ -18,9 +18,6 @@ if [[ $# -ge 1 ]]; then
     shift
 fi
 
-# Default command if none provided
-CONTAINER_CMD=("${@:-/bin/bash}")
-
 # ------------------------------------------------------------------------------
 # Container Runtime Detection
 # ------------------------------------------------------------------------------
@@ -48,7 +45,7 @@ fi
 echo "[+] Spawning ephemeral Playwright sandbox attached to '${NETWORK_NAME}' via ${RUNTIME}..."
 echo "    - Proxy: ${PROXY_URL}"
 echo "    - Interactive flags: ${INTERACTIVE_FLAGS[*]:-none (headless/non-tty mode)}"
-echo "    - Command: ${CONTAINER_CMD[*]}"
+echo "    - Command: python /agent/agent.py"
 
 # ------------------------------------------------------------------------------
 # Launch Hardened Disposable Container
@@ -58,22 +55,6 @@ echo "    - Command: ${CONTAINER_CMD[*]}"
 # 4. Proxy envs: directs HTTP/HTTPS/Node/Playwright traffic to the MITM proxy
 # 5. Kernel hardening: cap-drop=ALL, no-new-privileges
 # 6. Memory: --ipc=host + --shm-size=1gb for stable browser rendering
+# 7. Volume mounts: agent code and output directory shared with host
 # ------------------------------------------------------------------------------
-exec "${RUNTIME}" run --rm "${INTERACTIVE_FLAGS[@]}" \
-  --network "${NETWORK_NAME}" \
-  --dns 127.0.0.1 \
-  --env HTTP_PROXY="${PROXY_URL}" \
-  --env HTTPS_PROXY="${PROXY_URL}" \
-  --env http_proxy="${PROXY_URL}" \
-  --env https_proxy="${PROXY_URL}" \
-  --env ALL_PROXY="${PROXY_URL}" \
-  --env all_proxy="${PROXY_URL}" \
-  --env NO_PROXY="" \
-  --env no_proxy="" \
-  --env NODE_TLS_REJECT_UNAUTHORIZED="${NODE_TLS_REJECT_UNAUTHORIZED:-0}" \
-  --security-opt=no-new-privileges:true \
-  --cap-drop=ALL \
-  --shm-size=1gb \
-  --ipc=host \
-  "${IMAGE_NAME}" \
-  "${CONTAINER_CMD[@]}"
+exec "${RUNTIME}" run --rm "${INTERACTIVE_FLAGS[@]}"   --network "${NETWORK_NAME}"   --dns 127.0.0.1   -v "$(pwd)/agent:/agent"   -v "$(pwd)/out:/out"   --env HTTP_PROXY="${PROXY_URL}"   --env HTTPS_PROXY="${PROXY_URL}"   --env http_proxy="${PROXY_URL}"   --env https_proxy="${PROXY_URL}"   --env ALL_PROXY="${PROXY_URL}"   --env all_proxy="${PROXY_URL}"   --env NO_PROXY=""   --env no_proxy=""   --env NODE_TLS_REJECT_UNAUTHORIZED="${NODE_TLS_REJECT_UNAUTHORIZED:-0}"   --security-opt=no-new-privileges:true   --cap-drop=ALL   --shm-size=1gb   --ipc=host   "${IMAGE_NAME}"   python /agent/agent.py
