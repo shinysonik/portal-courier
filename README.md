@@ -281,7 +281,3 @@ TBD — pending hackathon rulebook.
 ## Acknowledgments
 
 Built on the shoulders of mitmproxy, Playwright, FastAPI, and Vultr's Serverless Inference. The containment-first pattern is inspired by the winning submissions of recent lablab.ai hackathons, particularly in the "Safe, Auditable AI" category.
-
----
-
-Если что-то в README нужно поменять (например, ник в URL, добавленный пункт в team, или другая лицензия) — скажи, поправлю. Также могу сделать сокращённую версию для GitHub «About» (короткое описание) и текст для submission form на lablab.
