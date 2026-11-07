@@ -25,7 +25,7 @@ from mitmproxy import http, ctx
 
 ALLOWED_HOSTS = {
     h.strip()
-    for h in os.getenv("ALLOWED_HOSTS", "localhost:5001,localhost:5002").split(",")
+    for h in os.getenv("ALLOWED_HOSTS", "localhost:5001,localhost:5002,localhost:3000").split(",")
     if h.strip()
 }
 
