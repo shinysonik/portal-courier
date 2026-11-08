@@ -1,0 +1,18 @@
+[
+  {
+    "id": "good",
+    "name": "EnergoPlus (energy supplier)",
+    "kind": "good",
+    "url": "http://{host}:5001/login",
+    "username": "anna",
+    "vat_id": ""
+  },
+  {
+    "id": "hostile",
+    "name": "GazSfera (gas supplier)",
+    "kind": "hostile",
+    "url": "http://{host}:5002/login",
+    "username": "anna",
+    "vat_id": "9876543210"
+  }
+]
