@@ -1,4 +1,4 @@
-"""Queue both demo portals, wait, print what happened.  python orchestrator/smoke_test.py [--approve-good --reject-hostile]"""
+"""Queue both demo portals, wait, print what happened. Usage: python scripts/smoke_test.py [--decide]"""
 import sys, time, httpx
 
 API = "http://127.0.0.1:8000"

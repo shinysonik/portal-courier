@@ -291,7 +291,10 @@ def extract_fields(text: str) -> dict:
 
 # ---- events (written by the proxy, filtered per job by time window) ---------
 def _ts(s: str) -> int:
-    return calendar.timegm(time.strptime(s, "%Y-%m-%dT%H:%M:%SZ"))
+    try:
+        return calendar.timegm(time.strptime(s, "%Y-%m-%dT%H:%M:%SZ"))
+    except (ValueError, TypeError):
+        return 0
 
 
 def read_all_events() -> list[dict]:

@@ -166,16 +166,21 @@ Portal Courier assumes the worst: that a supplier portal is compromised, that a 
 ```bash
 git clone https://github.com/shinysonik/portal-courier.git
 cd portal-courier
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 cp .env.example .env
-# Edit .env with your Vultr API key and model name
+# Edit .env with your Vultr Serverless Inference key and model name
 ```
 
 ### 2. Start the demo portals
 
 ```bash
-cd portals
-pip install -r requirements.txt
-bash run_both.sh
+# Terminal 1 - Good portal (EnergoPlus):
+uvicorn portals.good.app:app --host 127.0.0.1 --port 5001
+
+# Terminal 2 - Hostile portal (GazSfera):
+uvicorn portals.hostile.app:app --host 127.0.0.1 --port 5002
 ```
 
 - Good portal: http://localhost:5001 (user: `anna`, pass: `real_secret_123` or `VAULT_PASS`)
@@ -184,27 +189,24 @@ bash run_both.sh
 ### 3. Start the proxy
 
 ```bash
-cd proxy
-pip install -r requirements.txt
-mitmweb -s addon.py --listen-port 8080
+# Terminal 3:
+mitmdump -s proxy/addon.py --listen-host 172.28.0.1 --listen-port 8888
 ```
 
 ### 4. Start the orchestrator
 
 ```bash
-cd orchestrator
-pip install -r requirements.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+# Terminal 4:
+uvicorn orchestrator.app.main:app --host 0.0.0.0 --port 8000
 ```
 
 Open http://localhost:8000 for the dashboard.
+For automated cloud deployment with Docker and iptables isolation, follow [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ### 5. Run a job
 
 ```bash
-curl -X POST http://localhost:8000/jobs \
-  -H "Content-Type: application/json" \
-  -d '{"portals": ["http://localhost:5001", "http://localhost:5002"]}'
+python scripts/smoke_test.py --decide
 ```
 
 Watch the dashboard: two jobs queue, the hostile portal is blocked five times, the container is destroyed, the good portal completes.

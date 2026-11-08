@@ -1,5 +1,5 @@
 """Fake Vultr Serverless Inference for local testing (no key needed).
-Run:  uvicorn orchestrator.mock_vultr:app --port 9000
+Run:  uvicorn scripts.mock_vultr:app --port 9000
 Then: VULTR_BASE_URL=http://127.0.0.1:9000/v1  VULTR_API_KEY=x  VULTR_MODEL=mock
 Set MOCK_FAIL=1 to make it return HTTP 500 (tests the retry + extraction_failed path)."""
 import json, os, re
