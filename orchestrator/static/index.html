@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portal Courier — Autonomous AP Agent Telemetry & Zero-Trust Sandbox</title>
+    <title>Portal Courier — Autonomous AP Agent with Network Containment</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,558 +11,137 @@
     <script>
         tailwind.config = {
             darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                        mono: ['JetBrains Mono', 'monospace'],
-                    },
-                    colors: {
-                        slate: {
-                            750: '#243247',
-                            850: '#172033',
-                            900: '#0f172a',
-                            950: '#0a0f1d',
-                        }
-                    }
-                }
-            }
+            theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'], mono: ['JetBrains Mono', 'ui-monospace', 'monospace'] } } }
         }
     </script>
     <style>
         * { scrollbar-width: thin; scrollbar-color: #334155 #1e293b; }
-        *::-webkit-scrollbar { width: 6px; }
+        *::-webkit-scrollbar { width: 6px; height: 6px; }
         *::-webkit-scrollbar-track { background: #1e293b; }
         *::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-
-        @keyframes pulse-glow {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.25); }
-            50% { box-shadow: 0 0 14px 2px rgba(56, 189, 248, 0.45); }
-        }
-        @keyframes pulse-danger {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.3); }
-            50% { box-shadow: 0 0 16px 3px rgba(244, 63, 94, 0.55); }
-        }
-        @keyframes pulse-success {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.2); }
-            50% { box-shadow: 0 0 10px 1px rgba(16, 185, 129, 0.35); }
-        }
-
+        @keyframes pulse-glow { 0%,100% { box-shadow: 0 0 0 0 rgba(56,189,248,.25); } 50% { box-shadow: 0 0 14px 2px rgba(56,189,248,.45); } }
+        @keyframes pulse-danger { 0%,100% { box-shadow: 0 0 0 0 rgba(244,63,94,.3); } 50% { box-shadow: 0 0 16px 3px rgba(244,63,94,.55); } }
+        @keyframes pulse-success { 0%,100% { box-shadow: 0 0 0 0 rgba(16,185,129,.2); } 50% { box-shadow: 0 0 10px 1px rgba(16,185,129,.35); } }
         .portal-processing { animation: pulse-glow 2s ease-in-out infinite; border-color: #38bdf8 !important; }
         .portal-critical { animation: pulse-danger 1.5s ease-in-out infinite; border-color: #f43f5e !important; }
         .portal-clean { animation: pulse-success 3s ease-in-out infinite; border-color: #10b981 !important; }
-
         .spinner-svg { animation: spin 1.2s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-        .log-entry { animation: fadeIn 0.25s ease-out; }
+        .log-entry { animation: fadeIn .25s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-200 font-sans min-h-screen p-4 md:p-8 flex flex-col justify-between">
 
-    <!-- ============================================================
-         FLOATING DYNAMIC INGESTION POPUP (Kowalski Spring Physics)
-         ============================================================ -->
-    <div id="ingestionPopup" class="fixed top-6 right-6 z-50 transform transition-all duration-300 ease-out translate-y-[-20px] opacity-0 pointer-events-none">
-        <div class="flex items-center gap-3 bg-slate-800/95 backdrop-blur-md border border-sky-500/50 shadow-2xl shadow-sky-950/60 rounded-xl px-4 py-3 min-w-[340px]">
-            <div id="popupIcon" class="w-9 h-9 rounded-lg bg-sky-950/80 border border-sky-800 flex items-center justify-center shrink-0">
-                <svg class="spinner-svg w-4 h-4 text-sky-400" viewBox="0 0 24 24" fill="none">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                </svg>
-            </div>
-            <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between gap-2">
-                    <span class="text-[10px] font-mono uppercase tracking-wider text-sky-400 font-semibold">Universal Parser Ingesting</span>
-                    <span id="popupExtTag" class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-800">.TXT</span>
-                </div>
-                <div id="popupText" class="text-xs font-mono text-white font-medium truncate mt-0.5">
-                    Reading (.txt) file...
-                </div>
-                <div id="popupPortal" class="text-[11px] font-sans text-slate-400 truncate">
-                    Tiny Fox Press (TFP-01)
-                </div>
-            </div>
-        </div>
+    <!-- Toast -->
+    <div id="toast" class="fixed top-6 right-6 z-50 transition-all duration-300 opacity-0 pointer-events-none translate-y-[-12px]">
+        <div id="toastBox" class="bg-slate-800/95 backdrop-blur-md border border-sky-500/50 shadow-2xl rounded-xl px-4 py-3 min-w-[260px] max-w-sm text-sm font-mono text-white"></div>
     </div>
 
-    <!-- MAIN WRAPPER -->
     <div class="max-w-7xl mx-auto w-full">
-        
+
         <!-- HEADER -->
         <header class="mb-6">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                     <div class="flex items-center gap-3 mb-1 flex-wrap">
                         <h1 class="text-2xl md:text-3xl font-bold text-white tracking-tight">Portal Courier</h1>
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-950/80 text-sky-300 border border-sky-800 tracking-wider uppercase">
-                            Zero-Trust Sandbox
-                        </span>
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-medium bg-emerald-950/70 text-emerald-400 border border-emerald-800">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                            Universal Ingestion: [.pdf &middot; .csv &middot; .txt &middot; .html]
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-950/80 text-sky-300 border border-sky-800 tracking-wider uppercase">Zero-Trust Sandbox</span>
+                        <span id="connPill" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-medium bg-slate-800 text-slate-400 border border-slate-700">
+                            <span id="connDot" class="w-1.5 h-1.5 rounded-full bg-slate-500"></span><span id="connText">connecting…</span>
                         </span>
                     </div>
-                    <p class="text-sm text-slate-400 font-light">Autonomous Accounts Payable Agent Telemetry &middot; Dynamic Protocol Parsing</p>
+                    <p class="text-sm text-slate-400 font-light">The agent recommends, the human decides. Nothing is processed until you click Approve.</p>
                 </div>
-                
-                <!-- Action Controls -->
                 <div class="flex items-center gap-3">
-                    <button id="resetBtn" class="hidden px-4 py-2.5 text-sm font-medium rounded-lg border border-slate-700 text-slate-300 hover:text-white hover:border-slate-500 transition-all duration-200 bg-slate-800 hover:bg-slate-750 cursor-pointer" onclick="resetSimulation()">
-                        Reset Simulation
-                    </button>
-                    <button id="initBtn" class="px-5 py-2.5 text-sm font-semibold rounded-lg bg-sky-600 hover:bg-sky-500 active:scale-[0.98] text-white transition-all duration-200 shadow-lg shadow-sky-900/30 hover:shadow-sky-800/40 cursor-pointer">
-                        Initialize Accounts Payable Agent
-                    </button>
+                    <nav class="flex rounded-lg border border-slate-700 overflow-hidden text-sm">
+                        <a id="navDash" href="#" class="px-4 py-2.5 font-medium">Dashboard</a>
+                        <a id="navLog" href="#log" class="px-4 py-2.5 font-medium">Event log</a>
+                    </nav>
+                    <button id="startBtn" class="px-5 py-2.5 text-sm font-semibold rounded-lg bg-sky-600 hover:bg-sky-500 active:scale-[0.98] text-white transition-all duration-200 shadow-lg shadow-sky-900/30 disabled:opacity-40 disabled:cursor-not-allowed">Start</button>
                 </div>
             </div>
         </header>
 
-        <!-- SCORECARD BANNER (Single-Digit Format) -->
-        <section class="mb-6 grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div class="bg-slate-800 border border-slate-700/80 rounded-xl p-4 shadow-sm transition-all duration-300">
-                <div class="text-xs text-slate-400 uppercase tracking-wider mb-1 font-medium">Invoices Verified</div>
-                <div id="scoreInvoices" class="text-2xl font-bold text-white font-mono">0</div>
-            </div>
-            <div class="bg-slate-800 border border-slate-700/80 rounded-xl p-4 shadow-sm transition-all duration-300">
-                <div class="text-xs text-slate-400 uppercase tracking-wider mb-1 font-medium">Threats Blocked</div>
-                <div id="scoreInjections" class="text-2xl font-bold text-rose-400 font-mono">0</div>
-            </div>
-            <div class="bg-slate-800 border border-slate-700/80 rounded-xl p-4 shadow-sm transition-all duration-300">
-                <div class="text-xs text-slate-400 uppercase tracking-wider mb-1 font-medium">Bytes Leaked</div>
-                <div id="scoreBytes" class="text-2xl font-bold text-white font-mono">0 B</div>
-            </div>
-            <div class="bg-slate-800 border border-slate-700/80 rounded-xl p-4 shadow-sm transition-all duration-300">
-                <div class="text-xs text-slate-400 uppercase tracking-wider mb-1 font-medium">Containment</div>
-                <div id="scoreContainment" class="text-2xl font-bold text-emerald-400 font-mono">100%</div>
-            </div>
-        </section>
-
-        <!-- MAIN GRID: 6 PORTAL CARDS (2x3 Layout) -->
-        <main class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-
-        <!-- Portal Card: portal1 (Tiny Fox Press) -->
-        <div id="card-portal1" class="bg-slate-800 border border-slate-700/80 rounded-xl overflow-hidden transition-all duration-300 hover:border-slate-600 relative flex flex-col justify-between shadow-md">
-            
-            <!-- Spinner Overlay -->
-            <div id="spinner-portal1" class="hidden absolute inset-0 bg-slate-800/80 backdrop-blur-sm z-30 flex items-center justify-center">
-                <div class="flex flex-col items-center gap-2">
-                    <svg class="spinner-svg w-7 h-7 text-sky-400" viewBox="0 0 24 24" fill="none">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
-                    <span class="text-xs text-sky-300 font-mono font-medium">Ingesting stream...</span>
+        <!-- ============ DASHBOARD VIEW ============ -->
+        <div id="viewDash">
+            <!-- SCOREBOARD (all numbers computed from real jobs + proxy events) -->
+            <section class="mb-6 grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div class="bg-slate-800 border border-slate-700/80 rounded-xl p-4 shadow-sm">
+                    <div class="text-xs text-slate-400 uppercase tracking-wider mb-1 font-medium">Invoices Processed</div>
+                    <div id="scoreProcessed" class="text-2xl font-bold text-white font-mono">0</div>
+                    <div id="scoreProcessedSub" class="text-[11px] text-slate-500 mt-1 truncate">no run yet</div>
                 </div>
-            </div>
-
-            <!-- Card Header -->
-            <div class="px-4 py-3.5 border-b border-slate-700/70 bg-slate-800/90">
-                <div class="flex items-center justify-between gap-2">
-                    <div class="flex items-center gap-2.5 min-w-0">
-                        <span id="dot-portal1" class="w-2.5 h-2.5 rounded-full bg-slate-500 shrink-0 transition-colors duration-300"></span>
-                        <span class="text-sm font-semibold text-slate-100 truncate">Tiny Fox Press</span>
-                        <span class="px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px] font-mono text-slate-400 shrink-0">TFP-01</span>
-                    </div>
-                    <span id="badge-portal1" class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-700 text-slate-400 border border-slate-600 shrink-0 transition-all duration-300">IDLE</span>
+                <div class="bg-slate-800 border border-slate-700/80 rounded-xl p-4 shadow-sm">
+                    <div class="text-xs text-slate-400 uppercase tracking-wider mb-1 font-medium">Flagged Suspicious</div>
+                    <div id="scoreFlagged" class="text-2xl font-bold text-rose-400 font-mono">0</div>
+                    <div class="text-[11px] text-slate-500 mt-1 truncate">hidden instruction found in PDF</div>
                 </div>
-                <div class="flex items-center gap-2 mt-2">
-                    <span class="px-1.5 py-0.5 bg-slate-900/80 border border-slate-700/80 rounded text-[10px] text-sky-300 font-mono font-semibold">.txt</span>
-                    <span class="text-[11px] text-slate-400 font-sans">Plain Text</span>
+                <div class="bg-slate-800 border border-slate-700/80 rounded-xl p-4 shadow-sm">
+                    <div class="text-xs text-slate-400 uppercase tracking-wider mb-1 font-medium">Requests Blocked</div>
+                    <div id="scoreBlocked" class="text-2xl font-bold text-rose-400 font-mono">0</div>
+                    <div class="text-[11px] text-slate-500 mt-1 truncate">refused by the proxy allowlist</div>
                 </div>
-            </div>
-
-            <!-- Dynamic In-Card Reading Popup Pill -->
-            <div id="popup-portal1" class="hidden px-4 py-2 bg-sky-950/60 border-b border-sky-800/70 text-xs font-mono text-sky-300 flex items-center gap-2 transition-all duration-300">
-                <span class="w-2 h-2 rounded-full bg-sky-400 animate-pulse"></span>
-                <span>Reading (.txt) file...</span>
-            </div>
-
-            <!-- Card Body / Logs -->
-            <div class="p-4 flex-1 flex flex-col justify-between space-y-3">
-                <div id="log-portal1" class="h-28 overflow-y-auto bg-slate-900/70 border border-slate-700/60 rounded-lg p-2.5 font-mono text-xs text-slate-400 leading-relaxed space-y-1">
-                    <div class="text-slate-500 italic">Awaiting agent initialization...</div>
+                <div class="bg-slate-800 border border-slate-700/80 rounded-xl p-4 shadow-sm">
+                    <div class="text-xs text-slate-400 uppercase tracking-wider mb-1 font-medium">Credentials Swapped</div>
+                    <div id="scoreCreds" class="text-2xl font-bold text-emerald-400 font-mono">0</div>
+                    <div id="scoreCredsSub" class="text-[11px] text-slate-500 mt-1 truncate">0 session cookies held by proxy</div>
                 </div>
+            </section>
 
-                <!-- Extracted Data Box (Clean State HITL) -->
-                <div id="data-portal1" class="hidden bg-slate-900/90 border border-emerald-500/40 rounded-lg p-2.5 text-xs text-slate-200 transition-all duration-300">
-                    <div class="flex items-center justify-between mb-1">
-                        <span class="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-semibold flex items-center gap-1.5">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Extracted Structured Data
-                        </span>
-                        <span class="text-[10px] font-mono text-slate-500">LLM-Verified</span>
-                    </div>
-                    <div class="font-mono text-[11px] text-slate-300 font-medium">
-                        Vendor: <span class="text-white font-semibold">Tiny Fox Press</span> | Amount: <span class="text-emerald-300 font-bold">$18,450</span>
-                    </div>
-                </div>
+            <!-- PORTAL CARDS (one per portal returned by /portals) -->
+            <main id="grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                <div class="text-sm text-slate-500 font-mono col-span-full">Loading portals…</div>
+            </main>
 
-                <!-- Human-in-the-Loop Action Buttons Container -->
-                <div id="actions-portal1" class="hidden pt-1 transition-all duration-300">
-                    <!-- Dynamic injection: Approve / Reject for Clean, Reject for Critical -->
+            <!-- LIVE TELEMETRY: state changes observed from the orchestrator API -->
+            <section class="mt-6 mb-6">
+                <div class="flex items-center gap-3 mb-2.5">
+                    <h2 class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Live Job Telemetry</h2>
+                    <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-mono border border-emerald-500/20">orchestrator API</span>
                 </div>
-            </div>
+                <div id="terminal" class="h-40 overflow-y-auto bg-slate-950 border border-slate-800 rounded-lg p-3.5 font-mono text-xs text-slate-400 leading-relaxed space-y-1"></div>
+            </section>
         </div>
-        
 
-        <!-- Portal Card: portal2 (Featherproof Books) -->
-        <div id="card-portal2" class="bg-slate-800 border border-slate-700/80 rounded-xl overflow-hidden transition-all duration-300 hover:border-slate-600 relative flex flex-col justify-between shadow-md">
-            
-            <!-- Spinner Overlay -->
-            <div id="spinner-portal2" class="hidden absolute inset-0 bg-slate-800/80 backdrop-blur-sm z-30 flex items-center justify-center">
-                <div class="flex flex-col items-center gap-2">
-                    <svg class="spinner-svg w-7 h-7 text-sky-400" viewBox="0 0 24 24" fill="none">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
-                    <span class="text-xs text-sky-300 font-mono font-medium">Ingesting stream...</span>
-                </div>
+        <!-- ============ EVENT LOG VIEW ============ -->
+        <div id="viewLog" class="hidden">
+            <div class="mb-3">
+                <h2 class="text-lg font-semibold text-white">Event log — audit trail</h2>
+                <p class="text-sm text-slate-400">Everything the proxy did during a run: requests allowed and blocked, credentials swapped, cookies stripped. Saved per job in <span class="font-mono text-slate-300">jobs/&lt;id&gt;/events.json</span>.</p>
             </div>
-
-            <!-- Card Header -->
-            <div class="px-4 py-3.5 border-b border-slate-700/70 bg-slate-800/90">
-                <div class="flex items-center justify-between gap-2">
-                    <div class="flex items-center gap-2.5 min-w-0">
-                        <span id="dot-portal2" class="w-2.5 h-2.5 rounded-full bg-slate-500 shrink-0 transition-colors duration-300"></span>
-                        <span class="text-sm font-semibold text-slate-100 truncate">Featherproof Books</span>
-                        <span class="px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px] font-mono text-slate-400 shrink-0">FPB-02</span>
-                    </div>
-                    <span id="badge-portal2" class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-700 text-slate-400 border border-slate-600 shrink-0 transition-all duration-300">IDLE</span>
-                </div>
-                <div class="flex items-center gap-2 mt-2">
-                    <span class="px-1.5 py-0.5 bg-slate-900/80 border border-slate-700/80 rounded text-[10px] text-sky-300 font-mono font-semibold">.txt</span>
-                    <span class="text-[11px] text-slate-400 font-sans">Plain Text</span>
-                </div>
+            <div id="logTabs" class="flex flex-wrap gap-2 mb-3"></div>
+            <div id="logSummary" class="flex flex-wrap gap-2 mb-3 text-[11px] font-mono"></div>
+            <div class="bg-slate-800 border border-slate-700/80 rounded-xl overflow-x-auto">
+                <table class="w-full text-xs font-mono">
+                    <thead class="text-slate-400 uppercase tracking-wider text-[10px] bg-slate-800/90">
+                        <tr><th class="text-left px-3 py-2">Time</th><th class="text-left px-3 py-2">Event</th><th class="text-left px-3 py-2">Host</th><th class="text-left px-3 py-2">Detail</th></tr>
+                    </thead>
+                    <tbody id="logBody" class="divide-y divide-slate-700/50"></tbody>
+                </table>
             </div>
-
-            <!-- Dynamic In-Card Reading Popup Pill -->
-            <div id="popup-portal2" class="hidden px-4 py-2 bg-sky-950/60 border-b border-sky-800/70 text-xs font-mono text-sky-300 flex items-center gap-2 transition-all duration-300">
-                <span class="w-2 h-2 rounded-full bg-sky-400 animate-pulse"></span>
-                <span>Reading (.txt) file...</span>
-            </div>
-
-            <!-- Card Body / Logs -->
-            <div class="p-4 flex-1 flex flex-col justify-between space-y-3">
-                <div id="log-portal2" class="h-28 overflow-y-auto bg-slate-900/70 border border-slate-700/60 rounded-lg p-2.5 font-mono text-xs text-slate-400 leading-relaxed space-y-1">
-                    <div class="text-slate-500 italic">Awaiting agent initialization...</div>
-                </div>
-
-                <!-- Extracted Data Box (Clean State HITL) -->
-                <div id="data-portal2" class="hidden bg-slate-900/90 border border-emerald-500/40 rounded-lg p-2.5 text-xs text-slate-200 transition-all duration-300">
-                    <div class="flex items-center justify-between mb-1">
-                        <span class="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-semibold flex items-center gap-1.5">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Extracted Structured Data
-                        </span>
-                        <span class="text-[10px] font-mono text-slate-500">LLM-Verified</span>
-                    </div>
-                    <div class="font-mono text-[11px] text-slate-300 font-medium">
-                        Vendor: <span class="text-white font-semibold">Featherproof Books</span> | Amount: <span class="text-emerald-300 font-bold">$9,230</span>
-                    </div>
-                </div>
-
-                <!-- Human-in-the-Loop Action Buttons Container -->
-                <div id="actions-portal2" class="hidden pt-1 transition-all duration-300">
-                    <!-- Dynamic injection: Approve / Reject for Clean, Reject for Critical -->
-                </div>
-            </div>
+            <div id="logLinks" class="mt-2 text-[11px] text-slate-500 font-mono"></div>
         </div>
-        
-
-        <!-- Portal Card: portal3 (Melville House) -->
-        <div id="card-portal3" class="bg-slate-800 border border-slate-700/80 rounded-xl overflow-hidden transition-all duration-300 hover:border-slate-600 relative flex flex-col justify-between shadow-md">
-            
-            <!-- Spinner Overlay -->
-            <div id="spinner-portal3" class="hidden absolute inset-0 bg-slate-800/80 backdrop-blur-sm z-30 flex items-center justify-center">
-                <div class="flex flex-col items-center gap-2">
-                    <svg class="spinner-svg w-7 h-7 text-sky-400" viewBox="0 0 24 24" fill="none">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
-                    <span class="text-xs text-sky-300 font-mono font-medium">Ingesting stream...</span>
-                </div>
-            </div>
-
-            <!-- Card Header -->
-            <div class="px-4 py-3.5 border-b border-slate-700/70 bg-slate-800/90">
-                <div class="flex items-center justify-between gap-2">
-                    <div class="flex items-center gap-2.5 min-w-0">
-                        <span id="dot-portal3" class="w-2.5 h-2.5 rounded-full bg-slate-500 shrink-0 transition-colors duration-300"></span>
-                        <span class="text-sm font-semibold text-slate-100 truncate">Melville House</span>
-                        <span class="px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px] font-mono text-slate-400 shrink-0">MVH-03</span>
-                    </div>
-                    <span id="badge-portal3" class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-700 text-slate-400 border border-slate-600 shrink-0 transition-all duration-300">IDLE</span>
-                </div>
-                <div class="flex items-center gap-2 mt-2">
-                    <span class="px-1.5 py-0.5 bg-slate-900/80 border border-slate-700/80 rounded text-[10px] text-sky-300 font-mono font-semibold">.csv</span>
-                    <span class="text-[11px] text-slate-400 font-sans">CSV Table</span>
-                </div>
-            </div>
-
-            <!-- Dynamic In-Card Reading Popup Pill -->
-            <div id="popup-portal3" class="hidden px-4 py-2 bg-sky-950/60 border-b border-sky-800/70 text-xs font-mono text-sky-300 flex items-center gap-2 transition-all duration-300">
-                <span class="w-2 h-2 rounded-full bg-sky-400 animate-pulse"></span>
-                <span>Reading (.csv) file...</span>
-            </div>
-
-            <!-- Card Body / Logs -->
-            <div class="p-4 flex-1 flex flex-col justify-between space-y-3">
-                <div id="log-portal3" class="h-28 overflow-y-auto bg-slate-900/70 border border-slate-700/60 rounded-lg p-2.5 font-mono text-xs text-slate-400 leading-relaxed space-y-1">
-                    <div class="text-slate-500 italic">Awaiting agent initialization...</div>
-                </div>
-
-                <!-- Extracted Data Box (Clean State HITL) -->
-                <div id="data-portal3" class="hidden bg-slate-900/90 border border-emerald-500/40 rounded-lg p-2.5 text-xs text-slate-200 transition-all duration-300">
-                    <div class="flex items-center justify-between mb-1">
-                        <span class="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-semibold flex items-center gap-1.5">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Extracted Structured Data
-                        </span>
-                        <span class="text-[10px] font-mono text-slate-500">LLM-Verified</span>
-                    </div>
-                    <div class="font-mono text-[11px] text-slate-300 font-medium">
-                        Vendor: <span class="text-white font-semibold">Melville House</span> | Amount: <span class="text-emerald-300 font-bold">$42,100</span>
-                    </div>
-                </div>
-
-                <!-- Human-in-the-Loop Action Buttons Container -->
-                <div id="actions-portal3" class="hidden pt-1 transition-all duration-300">
-                    <!-- Dynamic injection: Approve / Reject for Clean, Reject for Critical -->
-                </div>
-            </div>
-        </div>
-        
-
-        <!-- Portal Card: portal4 (Dalkey Archive Press) -->
-        <div id="card-portal4" class="bg-slate-800 border border-slate-700/80 rounded-xl overflow-hidden transition-all duration-300 hover:border-slate-600 relative flex flex-col justify-between shadow-md">
-            
-            <!-- Spinner Overlay -->
-            <div id="spinner-portal4" class="hidden absolute inset-0 bg-slate-800/80 backdrop-blur-sm z-30 flex items-center justify-center">
-                <div class="flex flex-col items-center gap-2">
-                    <svg class="spinner-svg w-7 h-7 text-sky-400" viewBox="0 0 24 24" fill="none">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
-                    <span class="text-xs text-sky-300 font-mono font-medium">Ingesting stream...</span>
-                </div>
-            </div>
-
-            <!-- Card Header -->
-            <div class="px-4 py-3.5 border-b border-slate-700/70 bg-slate-800/90">
-                <div class="flex items-center justify-between gap-2">
-                    <div class="flex items-center gap-2.5 min-w-0">
-                        <span id="dot-portal4" class="w-2.5 h-2.5 rounded-full bg-slate-500 shrink-0 transition-colors duration-300"></span>
-                        <span class="text-sm font-semibold text-slate-100 truncate">Dalkey Archive Press</span>
-                        <span class="px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px] font-mono text-slate-400 shrink-0">DAP-04</span>
-                    </div>
-                    <span id="badge-portal4" class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-700 text-slate-400 border border-slate-600 shrink-0 transition-all duration-300">IDLE</span>
-                </div>
-                <div class="flex items-center gap-2 mt-2">
-                    <span class="px-1.5 py-0.5 bg-slate-900/80 border border-slate-700/80 rounded text-[10px] text-sky-300 font-mono font-semibold">.csv</span>
-                    <span class="text-[11px] text-slate-400 font-sans">CSV Table</span>
-                </div>
-            </div>
-
-            <!-- Dynamic In-Card Reading Popup Pill -->
-            <div id="popup-portal4" class="hidden px-4 py-2 bg-sky-950/60 border-b border-sky-800/70 text-xs font-mono text-sky-300 flex items-center gap-2 transition-all duration-300">
-                <span class="w-2 h-2 rounded-full bg-sky-400 animate-pulse"></span>
-                <span>Reading (.csv) file...</span>
-            </div>
-
-            <!-- Card Body / Logs -->
-            <div class="p-4 flex-1 flex flex-col justify-between space-y-3">
-                <div id="log-portal4" class="h-28 overflow-y-auto bg-slate-900/70 border border-slate-700/60 rounded-lg p-2.5 font-mono text-xs text-slate-400 leading-relaxed space-y-1">
-                    <div class="text-slate-500 italic">Awaiting agent initialization...</div>
-                </div>
-
-                <!-- Extracted Data Box (Clean State HITL) -->
-                <div id="data-portal4" class="hidden bg-slate-900/90 border border-emerald-500/40 rounded-lg p-2.5 text-xs text-slate-200 transition-all duration-300">
-                    <div class="flex items-center justify-between mb-1">
-                        <span class="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-semibold flex items-center gap-1.5">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Extracted Structured Data
-                        </span>
-                        <span class="text-[10px] font-mono text-slate-500">LLM-Verified</span>
-                    </div>
-                    <div class="font-mono text-[11px] text-slate-300 font-medium">
-                        Vendor: <span class="text-white font-semibold">Dalkey Archive Press</span> | Amount: <span class="text-emerald-300 font-bold">N/A (Compromised)</span>
-                    </div>
-                </div>
-
-                <!-- Human-in-the-Loop Action Buttons Container -->
-                <div id="actions-portal4" class="hidden pt-1 transition-all duration-300">
-                    <!-- Dynamic injection: Approve / Reject for Clean, Reject for Critical -->
-                </div>
-            </div>
-        </div>
-        
-
-        <!-- Portal Card: portal5 (Smith, Elder & Co) -->
-        <div id="card-portal5" class="bg-slate-800 border border-slate-700/80 rounded-xl overflow-hidden transition-all duration-300 hover:border-slate-600 relative flex flex-col justify-between shadow-md">
-            
-            <!-- Spinner Overlay -->
-            <div id="spinner-portal5" class="hidden absolute inset-0 bg-slate-800/80 backdrop-blur-sm z-30 flex items-center justify-center">
-                <div class="flex flex-col items-center gap-2">
-                    <svg class="spinner-svg w-7 h-7 text-sky-400" viewBox="0 0 24 24" fill="none">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
-                    <span class="text-xs text-sky-300 font-mono font-medium">Ingesting stream...</span>
-                </div>
-            </div>
-
-            <!-- Card Header -->
-            <div class="px-4 py-3.5 border-b border-slate-700/70 bg-slate-800/90">
-                <div class="flex items-center justify-between gap-2">
-                    <div class="flex items-center gap-2.5 min-w-0">
-                        <span id="dot-portal5" class="w-2.5 h-2.5 rounded-full bg-slate-500 shrink-0 transition-colors duration-300"></span>
-                        <span class="text-sm font-semibold text-slate-100 truncate">Smith, Elder & Co</span>
-                        <span class="px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px] font-mono text-slate-400 shrink-0">SEC-05</span>
-                    </div>
-                    <span id="badge-portal5" class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-700 text-slate-400 border border-slate-600 shrink-0 transition-all duration-300">IDLE</span>
-                </div>
-                <div class="flex items-center gap-2 mt-2">
-                    <span class="px-1.5 py-0.5 bg-slate-900/80 border border-slate-700/80 rounded text-[10px] text-sky-300 font-mono font-semibold">.html</span>
-                    <span class="text-[11px] text-slate-400 font-sans">HTML DOM</span>
-                </div>
-            </div>
-
-            <!-- Dynamic In-Card Reading Popup Pill -->
-            <div id="popup-portal5" class="hidden px-4 py-2 bg-sky-950/60 border-b border-sky-800/70 text-xs font-mono text-sky-300 flex items-center gap-2 transition-all duration-300">
-                <span class="w-2 h-2 rounded-full bg-sky-400 animate-pulse"></span>
-                <span>Reading (.html) file...</span>
-            </div>
-
-            <!-- Card Body / Logs -->
-            <div class="p-4 flex-1 flex flex-col justify-between space-y-3">
-                <div id="log-portal5" class="h-28 overflow-y-auto bg-slate-900/70 border border-slate-700/60 rounded-lg p-2.5 font-mono text-xs text-slate-400 leading-relaxed space-y-1">
-                    <div class="text-slate-500 italic">Awaiting agent initialization...</div>
-                </div>
-
-                <!-- Extracted Data Box (Clean State HITL) -->
-                <div id="data-portal5" class="hidden bg-slate-900/90 border border-emerald-500/40 rounded-lg p-2.5 text-xs text-slate-200 transition-all duration-300">
-                    <div class="flex items-center justify-between mb-1">
-                        <span class="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-semibold flex items-center gap-1.5">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Extracted Structured Data
-                        </span>
-                        <span class="text-[10px] font-mono text-slate-500">LLM-Verified</span>
-                    </div>
-                    <div class="font-mono text-[11px] text-slate-300 font-medium">
-                        Vendor: <span class="text-white font-semibold">Smith, Elder & Co</span> | Amount: <span class="text-emerald-300 font-bold">N/A (Compromised)</span>
-                    </div>
-                </div>
-
-                <!-- Human-in-the-Loop Action Buttons Container -->
-                <div id="actions-portal5" class="hidden pt-1 transition-all duration-300">
-                    <!-- Dynamic injection: Approve / Reject for Clean, Reject for Critical -->
-                </div>
-            </div>
-        </div>
-        
-
-        <!-- Portal Card: portal6 (Chronicle Books) -->
-        <div id="card-portal6" class="bg-slate-800 border border-slate-700/80 rounded-xl overflow-hidden transition-all duration-300 hover:border-slate-600 relative flex flex-col justify-between shadow-md">
-            
-            <!-- Spinner Overlay -->
-            <div id="spinner-portal6" class="hidden absolute inset-0 bg-slate-800/80 backdrop-blur-sm z-30 flex items-center justify-center">
-                <div class="flex flex-col items-center gap-2">
-                    <svg class="spinner-svg w-7 h-7 text-sky-400" viewBox="0 0 24 24" fill="none">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
-                    <span class="text-xs text-sky-300 font-mono font-medium">Ingesting stream...</span>
-                </div>
-            </div>
-
-            <!-- Card Header -->
-            <div class="px-4 py-3.5 border-b border-slate-700/70 bg-slate-800/90">
-                <div class="flex items-center justify-between gap-2">
-                    <div class="flex items-center gap-2.5 min-w-0">
-                        <span id="dot-portal6" class="w-2.5 h-2.5 rounded-full bg-slate-500 shrink-0 transition-colors duration-300"></span>
-                        <span class="text-sm font-semibold text-slate-100 truncate">Chronicle Books</span>
-                        <span class="px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px] font-mono text-slate-400 shrink-0">CHB-06</span>
-                    </div>
-                    <span id="badge-portal6" class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-700 text-slate-400 border border-slate-600 shrink-0 transition-all duration-300">IDLE</span>
-                </div>
-                <div class="flex items-center gap-2 mt-2">
-                    <span class="px-1.5 py-0.5 bg-slate-900/80 border border-slate-700/80 rounded text-[10px] text-sky-300 font-mono font-semibold">.pdf</span>
-                    <span class="text-[11px] text-slate-400 font-sans">PDF Document</span>
-                </div>
-            </div>
-
-            <!-- Dynamic In-Card Reading Popup Pill -->
-            <div id="popup-portal6" class="hidden px-4 py-2 bg-sky-950/60 border-b border-sky-800/70 text-xs font-mono text-sky-300 flex items-center gap-2 transition-all duration-300">
-                <span class="w-2 h-2 rounded-full bg-sky-400 animate-pulse"></span>
-                <span>Reading (.pdf) file...</span>
-            </div>
-
-            <!-- Card Body / Logs -->
-            <div class="p-4 flex-1 flex flex-col justify-between space-y-3">
-                <div id="log-portal6" class="h-28 overflow-y-auto bg-slate-900/70 border border-slate-700/60 rounded-lg p-2.5 font-mono text-xs text-slate-400 leading-relaxed space-y-1">
-                    <div class="text-slate-500 italic">Awaiting agent initialization...</div>
-                </div>
-
-                <!-- Extracted Data Box (Clean State HITL) -->
-                <div id="data-portal6" class="hidden bg-slate-900/90 border border-emerald-500/40 rounded-lg p-2.5 text-xs text-slate-200 transition-all duration-300">
-                    <div class="flex items-center justify-between mb-1">
-                        <span class="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-semibold flex items-center gap-1.5">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Extracted Structured Data
-                        </span>
-                        <span class="text-[10px] font-mono text-slate-500">LLM-Verified</span>
-                    </div>
-                    <div class="font-mono text-[11px] text-slate-300 font-medium">
-                        Vendor: <span class="text-white font-semibold">Chronicle Books</span> | Amount: <span class="text-emerald-300 font-bold">$12,680</span>
-                    </div>
-                </div>
-
-                <!-- Human-in-the-Loop Action Buttons Container -->
-                <div id="actions-portal6" class="hidden pt-1 transition-all duration-300">
-                    <!-- Dynamic injection: Approve / Reject for Clean, Reject for Critical -->
-                </div>
-            </div>
-        </div>
-        
-        </main>
-
-        <!-- AGENT TERMINAL LOG -->
-        <section class="mt-6 mb-6">
-            <div class="flex items-center gap-3 mb-2.5">
-                <h2 class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Agent Telemetry Terminal</h2>
-                <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-mono border border-emerald-500/20">stdout</span>
-                <span class="text-xs font-mono text-slate-500">Zero-Trust sandbox container active</span>
-            </div>
-            <div id="agentTerminal" class="h-40 overflow-y-auto bg-slate-950 border border-slate-800 rounded-lg p-3.5 font-mono text-xs text-slate-400 leading-relaxed space-y-1">
-                <span class="text-slate-600">[agent] Ready. Click "Initialize Accounts Payable Agent" to spawn worker containers...</span>
-            </div>
-        </section>
     </div>
 
-    <!-- FOOTER WITH TINY ABOUT LINK -->
+    <!-- FOOTER -->
     <footer class="mt-8 pt-4 border-t border-slate-800/80 max-w-7xl mx-auto w-full flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
         <div class="flex items-center gap-2">
-            <span>Portal Courier &bull; Enterprise B2B Zero-Trust AP Telemetry</span>
+            <span>Portal Courier &bull; Autonomous accounts payable with network containment</span>
             <span class="text-slate-600">|</span>
-            <span class="font-mono text-slate-500 text-[11px]">MITM Credential Proxy + Playwright Container Sandbox</span>
+            <span class="font-mono text-slate-500 text-[11px]">MITM credential proxy + disposable Playwright containers on Vultr</span>
         </div>
-        <div>
-            <button onclick="toggleAboutModal(true)" class="text-xs text-slate-500 hover:text-slate-300 underline underline-offset-2 transition cursor-pointer">
-                About
-            </button>
-        </div>
+        <button id="aboutBtn" class="text-xs text-slate-500 hover:text-slate-300 underline underline-offset-2 transition cursor-pointer">About</button>
     </footer>
 
-    <!-- MINIMAL ABOUT MODAL -->
-    <div id="aboutModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm transition-opacity duration-200">
+    <!-- ABOUT MODAL -->
+    <div id="aboutModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
         <div class="bg-slate-800 border border-slate-700 rounded-xl max-w-md w-full p-6 shadow-2xl relative text-left">
-            <button onclick="toggleAboutModal(false)" class="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition" aria-label="Close">
-                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M18 6L6 18M6 6l12 12"/>
-                </svg>
+            <button data-close="aboutModal" class="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition" aria-label="Close">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
             </button>
-            <div class="flex items-center gap-2.5 mb-2">
-                <div class="w-2.5 h-2.5 rounded-full bg-sky-400 animate-pulse"></div>
-                <h3 class="text-base font-bold text-white tracking-tight">Portal Courier</h3>
-            </div>
-            <p class="text-xs text-slate-400 mb-4 leading-relaxed">
-                Autonomous Accounts Payable agent telemetry and zero-trust sandbox defense with universal multi-format invoice ingestion.
-            </p>
+            <div class="flex items-center gap-2.5 mb-2"><div class="w-2.5 h-2.5 rounded-full bg-sky-400 animate-pulse"></div><h3 class="text-base font-bold text-white tracking-tight">Portal Courier</h3></div>
+            <p class="text-xs text-slate-400 mb-4 leading-relaxed">A browser agent logs into supplier portals inside a disposable container. It never sees the real password, never holds a real session and cannot reach anything except the allowlisted portals. Invoices are flagged for hidden instructions and a human approves or rejects every one.</p>
             <div class="border-t border-slate-700/80 pt-3.5 space-y-2">
                 <div class="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-semibold mb-2">Engineering Team</div>
                 <div class="flex items-center justify-between py-1 px-2.5 rounded bg-slate-900/60 border border-slate-700/60 text-xs">
@@ -577,480 +156,404 @@
                     <div class="p-2 rounded bg-slate-900/40 border border-slate-700/40 col-span-2">Talha Abid</div>
                 </div>
             </div>
-            <div class="mt-5 text-center">
-                <button onclick="toggleAboutModal(false)" class="w-full py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-medium transition cursor-pointer">
-                    Dismiss
-                </button>
+        </div>
+    </div>
+
+    <!-- REJECT MODAL -->
+    <div id="rejectModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl max-w-md w-full p-6 shadow-2xl">
+            <h3 class="text-base font-bold text-white mb-1">Reject invoice</h3>
+            <p id="rejectFor" class="text-xs text-slate-400 mb-3"></p>
+            <textarea id="rejectComment" rows="3" maxlength="500" placeholder="Reason (kept in the audit trail)" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-rose-500"></textarea>
+            <div class="flex justify-end gap-2 mt-4">
+                <button data-close="rejectModal" class="px-4 py-2 text-sm rounded-lg border border-slate-600 text-slate-300 hover:text-white hover:border-slate-400">Cancel</button>
+                <button id="rejectConfirm" class="px-4 py-2 text-sm font-semibold rounded-lg bg-rose-600 hover:bg-rose-500 text-white">Reject</button>
             </div>
         </div>
     </div>
 
 <script>
-    // ============================================================
-    // Portal Metadata Mapping (Universal Formats & Fintech Data)
-    // ============================================================
-    const PORTAL_META = {
-        portal1: { name: 'Tiny Fox Press', code: 'TFP-01', ext: '.txt', label: 'Plain Text', amount: '$18,450', safe: true },
-        portal2: { name: 'Featherproof Books', code: 'FPB-02', ext: '.txt', label: 'Plain Text', amount: '$9,230', safe: true },
-        portal3: { name: 'Melville House', code: 'MVH-03', ext: '.csv', label: 'CSV Spreadsheet', amount: '$42,100', safe: true },
-        portal4: { name: 'Dalkey Archive Press', code: 'DAP-04', ext: '.csv', label: 'CSV Spreadsheet', amount: 'N/A', safe: false },
-        portal5: { name: 'Smith, Elder & Co', code: 'SEC-05', ext: '.html', label: 'HTML DOM Document', amount: 'N/A', safe: false },
-        portal6: { name: 'Chronicle Books', code: 'CHB-06', ext: '.pdf', label: 'PDF Document', amount: '$12,680', safe: true }
-    };
+/* ================================================================
+   Portal Courier dashboard — talks to the REAL orchestrator API:
+   GET /portals · GET /jobs · GET /events?job_id= · POST /jobs
+   POST /jobs/{id}/approve · POST /jobs/{id}/reject · GET /jobs/{id}/pdf
+   Everything shown comes from those responses. Nothing is simulated.
+   All strings from the API are untrusted (PDF text, LLM output): always escaped.
+   ================================================================ */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const POLL_MS = 1500;
 
-    const evaluatedPortals = new Map();
-    let popupTimeout = null;
+const state = {
+    portals: [], jobs: [], latest: {},
+    events: {}, eventsFinal: {},          // job id -> events[], and whether they can still change
+    sig: {}, prev: {}, evLogged: {},      // render signatures / previous job snapshot / telemetry cursor
+    first: true, connected: null, logSel: null, rejectId: null,
+};
 
-    // ============================================================
-    // About Modal Toggle
-    // ============================================================
-    function toggleAboutModal(show) {
-        const modal = document.getElementById('aboutModal');
-        if (!modal) return;
-        if (show) {
-            modal.classList.remove('hidden');
+async function api(path, opts) {
+    const r = await fetch(path, opts);
+    if (!r.ok) {
+        let d = ""; try { d = (await r.json()).detail; } catch (_) {}
+        throw new Error(d || `HTTP ${r.status}`);
+    }
+    return r.json();
+}
+const post = (path, body) => api(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+
+/* ---------- small helpers ---------- */
+function toast(msg, kind) {
+    const box = $("toastBox");
+    box.className = "bg-slate-800/95 backdrop-blur-md border shadow-2xl rounded-xl px-4 py-3 min-w-[260px] max-w-sm text-sm font-mono text-white " +
+        (kind === "error" ? "border-rose-500/60" : "border-sky-500/50");
+    box.textContent = msg;
+    const t = $("toast");
+    t.classList.remove("opacity-0", "translate-y-[-12px]"); t.classList.add("opacity-100", "translate-y-0");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => { t.classList.add("opacity-0", "translate-y-[-12px]"); t.classList.remove("opacity-100", "translate-y-0"); }, 3500);
+}
+const hhmmss = d => d.toLocaleTimeString([], { hour12: false });
+const evTime = ts => { const d = new Date(ts); return isNaN(d) ? esc(ts) : hhmmss(d); };
+const isoTime = ts => { const d = new Date(ts); return isNaN(d) ? "" : d.toLocaleString(); };
+
+function setConn(ok, msg) {
+    if (state.connected === ok) return;
+    state.connected = ok;
+    $("connDot").className = "w-1.5 h-1.5 rounded-full " + (ok ? "bg-emerald-400 animate-pulse" : "bg-rose-500");
+    $("connText").textContent = ok ? "orchestrator connected" : "orchestrator unreachable" + (msg ? " — " + msg : "");
+    $("connPill").className = "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-medium border " +
+        (ok ? "bg-emerald-950/70 text-emerald-400 border-emerald-800" : "bg-rose-950/70 text-rose-300 border-rose-800");
+    if (!ok) term("[ui] lost connection to the orchestrator — retrying…", "text-rose-400");
+}
+
+/* ---------- status model ---------- */
+const TONES = {
+    idle:     { badge: "bg-slate-700 text-slate-400 border-slate-600",         dot: "bg-slate-500",                 card: "" },
+    queued:   { badge: "bg-slate-700 text-slate-300 border-slate-500",         dot: "bg-slate-400",                 card: "" },
+    running:  { badge: "bg-sky-950 text-sky-300 border-sky-700",               dot: "bg-sky-400 animate-pulse",     card: "portal-processing" },
+    clean:    { badge: "bg-emerald-950 text-emerald-300 border-emerald-700",   dot: "bg-emerald-400",               card: "portal-clean" },
+    critical: { badge: "bg-rose-950 text-rose-300 border-rose-700",            dot: "bg-rose-400 animate-pulse",    card: "portal-critical" },
+    approved: { badge: "bg-emerald-950 text-emerald-300 border-emerald-600",   dot: "bg-emerald-400",               card: "!border-emerald-500" },
+    rejected: { badge: "bg-rose-950 text-rose-300 border-rose-600",            dot: "bg-rose-400",                  card: "!border-rose-500" },
+    failed:   { badge: "bg-amber-950 text-amber-300 border-amber-600",         dot: "bg-amber-400",                 card: "!border-amber-500" },
+};
+const PHASE = { logging_in: "Logging in", downloading: "Downloading", analyzing: "Analyzing" };
+
+function statusInfo(job) {
+    if (!job) return { label: "IDLE", tone: "idle" };
+    switch (job.status) {
+        case "queued":          return { label: "QUEUED", tone: "queued" };
+        case "running":         return { label: (PHASE[job.phase] || "Running").toUpperCase(), tone: "running" };
+        case "awaiting_review": return job.suspicious ? { label: "SUSPICIOUS · REVIEW", tone: "critical" } : { label: "CLEAN · REVIEW", tone: "clean" };
+        case "approved":        return { label: "APPROVED", tone: "approved" };
+        case "rejected":        return { label: "REJECTED", tone: "rejected" };
+        case "failed":          return { label: "FAILED", tone: "failed" };
+    }
+    return { label: String(job.status).toUpperCase(), tone: "idle" };
+}
+const STEPS = ["Queued", "Login", "Download", "Analyze", "Review"];
+function stepIndex(job) {
+    if (!job || job.status === "failed") return -1;
+    if (job.status === "queued") return 0;
+    if (job.status === "running") return { logging_in: 1, downloading: 2, analyzing: 3 }[job.phase] ?? 1;
+    return 4;
+}
+const FAIL_TEXT = { login_failed: "Login failed", download_failed: "Invoice download failed", timeout: "Timed out", unknown_error: "Unexpected error", interrupted: "Interrupted by a restart" };
+
+/* ---------- events ---------- */
+const EV_STYLE = {
+    BLOCKED: "text-rose-400 font-bold", CREDENTIAL_INJECTED: "text-amber-300", COOKIE_STRIPPED: "text-violet-300",
+    COOKIE_REATTACHED: "text-slate-400", COOKIE_PASSED: "text-slate-400", REQUEST_ALLOWED: "text-slate-300",
+};
+function evDetail(e) {
+    const bits = [];
+    if (e.method) bits.push(e.method + (e.path ? " " + e.path : ""));
+    if (e.username) bits.push("user=" + e.username);
+    if (e.cookie_name) bits.push("cookie=" + e.cookie_name);
+    if (e.reason) bits.push(e.reason);
+    return bits.join(" · ");
+}
+async function ensureEvents(job) {
+    if (!job || job.status === "queued") return [];
+    if (state.eventsFinal[job.id]) return state.events[job.id] || [];
+    try {
+        const ev = await api(`/events?job_id=${encodeURIComponent(job.id)}`);
+        state.events[job.id] = ev;
+        if (job.status !== "running") state.eventsFinal[job.id] = true;   // finished jobs have a saved audit trail
+    } catch (_) { /* keep last known */ }
+    return state.events[job.id] || [];
+}
+const countType = (evs, t) => evs.filter(e => e.type === t).length;
+
+/* ---------- telemetry terminal (real state changes observed from the API) ---------- */
+function term(msg, cls) {
+    const box = $("terminal");
+    const line = document.createElement("div");
+    line.className = "log-entry " + (cls || "text-slate-400");
+    line.textContent = `[${hhmmss(new Date())}] ${msg}`;
+    box.appendChild(line);
+    while (box.children.length > 300) box.removeChild(box.firstChild);
+    box.scrollTop = box.scrollHeight;
+}
+function track() {
+    for (const p of state.portals) {
+        const job = state.latest[p.id];
+        if (!job) continue;
+        const prev = state.prev[job.id];
+        const evs = state.events[job.id] || [];
+        const snap = job.status + "|" + (job.phase || "");
+        if (state.first) {
+            state.evLogged[job.id] = evs.length;
         } else {
-            modal.classList.add('hidden');
-        }
-    }
-
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') toggleAboutModal(false);
-    });
-
-    // ============================================================
-    // Dynamic Floating Ingestion Popup
-    // ============================================================
-    function showIngestionPopup(portalId) {
-        const meta = PORTAL_META[portalId];
-        if (!meta) return;
-        const popup = document.getElementById('ingestionPopup');
-        const popupExt = document.getElementById('popupExtTag');
-        const popupText = document.getElementById('popupText');
-        const popupPortal = document.getElementById('popupPortal');
-        if (!popup) return;
-
-        if (popupTimeout) clearTimeout(popupTimeout);
-
-        popupExt.textContent = meta.ext.toUpperCase();
-        popupText.innerHTML = `Reading (<span class="font-bold text-white">${meta.ext}</span>) file...`;
-        popupPortal.textContent = `${meta.name} (${meta.code}) &bull; ${meta.label}`;
-
-        popup.classList.remove('opacity-0', 'translate-y-[-20px]', 'pointer-events-none');
-        popup.classList.add('opacity-100', 'translate-y-0');
-    }
-
-    function hideIngestionPopup() {
-        const popup = document.getElementById('ingestionPopup');
-        if (popup) {
-            popup.classList.remove('opacity-100', 'translate-y-0');
-            popup.classList.add('opacity-0', 'translate-y-[-20px]', 'pointer-events-none');
-        }
-    }
-
-    function showCompletionPopup() {
-        const popup = document.getElementById('ingestionPopup');
-        const popupExt = document.getElementById('popupExtTag');
-        const popupText = document.getElementById('popupText');
-        const popupPortal = document.getElementById('popupPortal');
-        if (!popup) return;
-
-        popupExt.textContent = 'DONE';
-        popupText.innerHTML = `<span class="font-bold text-emerald-400">All 6 portals processed.</span>`;
-        popupPortal.textContent = 'Universal ingestion [.txt, .csv, .html, .pdf] complete';
-
-        popup.classList.remove('opacity-0', 'translate-y-[-20px]', 'pointer-events-none');
-        popup.classList.add('opacity-100', 'translate-y-0');
-
-        popupTimeout = setTimeout(hideIngestionPopup, 3500);
-    }
-
-    // ============================================================
-    // Human-in-the-Loop (HITL) Action Handlers
-    // ============================================================
-    function handleApprove(portalId) {
-        const meta = PORTAL_META[portalId];
-        if (!meta) return;
-
-        const card = document.getElementById('card-' + portalId);
-        const badge = document.getElementById('badge-' + portalId);
-        const actions = document.getElementById('actions-' + portalId);
-
-        if (card) {
-            card.classList.remove('portal-processing', 'portal-clean', 'portal-critical');
-            card.classList.add('border-emerald-500');
-        }
-        if (badge) {
-            badge.textContent = 'APPROVED';
-            badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-950 text-emerald-300 border border-emerald-600 transition-all';
-        }
-        if (actions) {
-            actions.innerHTML = `
-                <div class="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold bg-emerald-950/60 border border-emerald-800/80 rounded-lg px-3 py-1.5">
-                    <svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span>Approved for General Ledger Posting</span>
-                </div>
-            `;
-        }
-        logTerminal(`[HITL] Invoice for ${meta.name} (${meta.code}) APPROVED by finance operator.`, 'text-emerald-400');
-    }
-
-    function handleReject(portalId) {
-        const meta = PORTAL_META[portalId];
-        if (!meta) return;
-
-        const card = document.getElementById('card-' + portalId);
-        const badge = document.getElementById('badge-' + portalId);
-        const actions = document.getElementById('actions-' + portalId);
-
-        if (meta.safe) {
-            // Safe portal rejected by user
-            if (card) {
-                card.classList.remove('portal-processing', 'portal-clean', 'portal-critical');
-                card.classList.add('border-slate-600');
+            if (!prev) term(`[${p.name}] job queued`, "text-sky-300");
+            if (prev !== undefined && prev !== snap || (!prev && job.status !== "queued")) {
+                const si = statusInfo(job);
+                const cls = si.tone === "critical" || si.tone === "failed" || si.tone === "rejected" ? "text-rose-400" :
+                            si.tone === "clean" || si.tone === "approved" ? "text-emerald-400" : "text-sky-300";
+                let extra = "";
+                if (job.status === "awaiting_review" && job.quote) extra = " — hidden instruction found in the PDF";
+                if (job.status === "failed") extra = " — " + (FAIL_TEXT[job.error] || job.error || "");
+                term(`[${p.name}] ${si.label.toLowerCase()}${extra}`, cls);
             }
-            if (badge) {
-                badge.textContent = 'REJECTED';
-                badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-800 text-slate-400 border border-slate-600 transition-all';
-            }
-            if (actions) {
-                actions.innerHTML = `
-                    <div class="flex items-center gap-1.5 text-xs text-slate-400 font-medium bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5">
-                        <span>Rejected by operator (Hold for manual review)</span>
-                    </div>
-                `;
-            }
-            logTerminal(`[HITL] Invoice for ${meta.name} (${meta.code}) REJECTED by finance operator.`, 'text-slate-400');
-        } else {
-            // Critical alert acknowledged & rejected/quarantined
-            if (card) {
-                card.classList.remove('portal-critical');
-                card.classList.add('border-slate-700');
-            }
-            if (badge) {
-                badge.textContent = 'QUARANTINED';
-                badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-900 text-rose-300 border border-rose-800 transition-all';
-            }
-            if (actions) {
-                actions.innerHTML = `
-                    <div class="flex items-center gap-1.5 text-xs text-rose-300 font-medium bg-rose-950/60 border border-rose-900 rounded-lg px-3 py-1.5">
-                        <svg class="w-4 h-4 text-rose-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                        <span>Alert Resolved: Vendor Host Quarantined</span>
-                    </div>
-                `;
-            }
-            logTerminal(`[HITL] Alert for ${meta.name} (${meta.code}) RESOLVED. Hostile container burned and quarantined.`, 'text-rose-400');
-        }
-    }
-
-    // ============================================================
-    // Global Integration Hook: window.updatePortalStatus
-    // ============================================================
-    window.updatePortalStatus = function (portalId, status, message) {
-        const cleanId = portalId.replace(/^card-/, '');
-        const card = document.getElementById('card-' + cleanId) || document.getElementById(cleanId);
-        if (!card) return;
-
-        const meta = PORTAL_META[cleanId];
-
-        // Card Border State
-        card.classList.remove('portal-processing', 'portal-clean', 'portal-critical');
-        if (status === 'processing') card.classList.add('portal-processing');
-        if (status === 'clean') card.classList.add('portal-clean');
-        if (status === 'critical') card.classList.add('portal-critical');
-
-        // Reading Popup Pill
-        const cardPopup = document.getElementById('popup-' + cleanId);
-        if (cardPopup && meta) {
-            if (status === 'processing') {
-                cardPopup.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span> <span>Reading (<strong>${meta.ext}</strong>) file...</span>`;
-                cardPopup.classList.remove('hidden');
-                showIngestionPopup(cleanId);
-            } else {
-                cardPopup.classList.add('hidden');
-            }
-        }
-
-        // Status Dot
-        const dot = document.getElementById('dot-' + cleanId);
-        if (dot) {
-            dot.className = 'w-2.5 h-2.5 rounded-full transition-all duration-300';
-            if (status === 'processing') dot.className += ' bg-sky-400 animate-pulse';
-            else if (status === 'clean') dot.className += ' bg-emerald-400';
-            else if (status === 'critical') dot.className += ' bg-rose-500 animate-pulse';
-            else dot.className += ' bg-slate-500';
-        }
-
-        // Status Badge
-        const badge = document.getElementById('badge-' + cleanId);
-        if (badge) {
-            badge.textContent = status.toUpperCase();
-            badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all duration-300 border ';
-            if (status === 'processing') badge.className += 'bg-sky-950 text-sky-300 border-sky-800';
-            else if (status === 'clean') badge.className += 'bg-emerald-950 text-emerald-300 border-emerald-800';
-            else if (status === 'critical') badge.className += 'bg-rose-950 text-rose-300 border-rose-800';
-            else badge.className += 'bg-slate-700 text-slate-400 border-slate-600';
-        }
-
-        // Spinner
-        const spinner = document.getElementById('spinner-' + cleanId);
-        if (spinner) {
-            if (status === 'processing') spinner.classList.remove('hidden');
-            else spinner.classList.add('hidden');
-        }
-
-        // Telemetry Log Line
-        const logEl = document.getElementById('log-' + cleanId);
-        if (logEl && message) {
-            const now = new Date();
-            const time = now.toLocaleTimeString('en-US', { hour12: false });
-            let colorClass = 'text-slate-300';
-            if (status === 'processing') colorClass = 'text-sky-300';
-            else if (status === 'clean') colorClass = 'text-emerald-400';
-            else if (status === 'critical') colorClass = 'text-rose-400';
-
-            const line = document.createElement('div');
-            line.className = 'text-xs leading-relaxed log-entry';
-            line.innerHTML = `<span class="text-slate-500 font-mono">[${time}]</span> <span class="${colorClass}">${message}</span>`;
-            logEl.appendChild(line);
-            logEl.scrollTop = logEl.scrollHeight;
-        }
-
-        // Extracted Data & Action Buttons (HITL Mechanics)
-        const dataBox = document.getElementById('data-' + cleanId);
-        const actionsBox = document.getElementById('actions-' + cleanId);
-
-        if (status === 'clean' && meta) {
-            if (dataBox) {
-                dataBox.innerHTML = `
-                    <div class="flex items-center justify-between mb-1">
-                        <span class="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-semibold flex items-center gap-1.5">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Extracted Structured Data
-                        </span>
-                        <span class="text-[10px] font-mono text-slate-500">Universal Parser</span>
-                    </div>
-                    <div class="font-mono text-[11px] text-slate-300 font-medium">
-                        Vendor: <span class="text-white font-semibold">${meta.name}</span> | Amount: <span class="text-emerald-300 font-bold">${meta.amount}</span>
-                    </div>
-                `;
-                dataBox.classList.remove('hidden');
-            }
-            if (actionsBox) {
-                actionsBox.innerHTML = `
-                    <div class="flex items-center gap-2 pt-1">
-                        <button onclick="handleApprove('${cleanId}')" class="flex-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-medium rounded-lg text-xs transition-all shadow-sm cursor-pointer flex items-center justify-center gap-1.5">
-                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-                            </svg>
-                            Approve
-                        </button>
-                        <button onclick="handleReject('${cleanId}')" class="px-3 py-1.5 border border-slate-600 hover:border-slate-500 hover:bg-slate-700/60 active:scale-95 text-slate-300 hover:text-white rounded-lg text-xs transition-all cursor-pointer">
-                            Reject
-                        </button>
-                    </div>
-                `;
-                actionsBox.classList.remove('hidden');
-            }
-        } else if (status === 'critical' && meta) {
-            if (dataBox) dataBox.classList.add('hidden');
-            if (actionsBox) {
-                actionsBox.innerHTML = `
-                    <div class="pt-1">
-                        <button onclick="handleReject('${cleanId}')" class="w-full px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-semibold rounded-lg text-xs uppercase tracking-wider transition-all shadow-md shadow-rose-950/40 cursor-pointer flex items-center justify-center gap-1.5">
-                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
-                            </svg>
-                            Reject &amp; Quarantine
-                        </button>
-                    </div>
-                `;
-                actionsBox.classList.remove('hidden');
-            }
-        } else if (status === 'processing') {
-            if (actionsBox) actionsBox.classList.add('hidden');
-        }
-
-        // Single-Digit Metrics Tally Tracking
-        if (status === 'clean' || status === 'critical') {
-            evaluatedPortals.set(cleanId, status);
-            let verifiedCount = 0;
-            let blockedCount = 0;
-            evaluatedPortals.forEach(function (val) {
-                if (val === 'clean') verifiedCount++;
-                if (val === 'critical') blockedCount++;
+            const from = state.evLogged[job.id] || 0;
+            evs.slice(from).forEach(e => {
+                if (e.type === "BLOCKED") term(`[${p.name}] BLOCKED ${e.method || ""} ${e.host} (${e.reason || ""})`, "text-rose-400");
+                else if (e.type === "CREDENTIAL_INJECTED") term(`[${p.name}] proxy swapped the placeholder for the real credential (agent never saw it)`, "text-amber-300");
+                else if (e.type === "COOKIE_STRIPPED") term(`[${p.name}] proxy stripped session cookie "${e.cookie_name}" (kept on the host)`, "text-violet-300");
             });
-
-            const scoreInvoices = document.getElementById('scoreInvoices');
-            const scoreInjections = document.getElementById('scoreInjections');
-            
-            // Single-digit format as requested: e.g. "4 Verified" and "2 Blocked"
-            if (scoreInvoices) {
-                scoreInvoices.innerHTML = `${verifiedCount} <span class="text-xs text-slate-400 font-sans font-normal">Verified</span>`;
-            }
-            if (scoreInjections) {
-                scoreInjections.innerHTML = `${blockedCount} <span class="text-xs text-rose-300 font-sans font-normal">Blocked</span>`;
-            }
+            state.evLogged[job.id] = evs.length;
         }
-    };
-
-    // ============================================================
-    // Terminal Logger
-    // ============================================================
-    function logTerminal(text, color) {
-        const terminal = document.getElementById('agentTerminal');
-        if (!terminal) return;
-        const now = new Date();
-        const time = now.toLocaleTimeString('en-US', { hour12: false });
-        const line = document.createElement('div');
-        line.className = 'text-xs leading-relaxed log-entry font-mono';
-        line.innerHTML = `<span class="text-slate-500">[${time}]</span> <span class="${color || 'text-slate-300'}">${text}</span>`;
-        terminal.appendChild(line);
-        terminal.scrollTop = terminal.scrollHeight;
+        state.prev[job.id] = snap;
     }
+    state.first = false;
+}
 
-    // ============================================================
-    // Simulation Sequence (All 6 Portals)
-    // ============================================================
-    function runSimulation() {
-        const initBtn = document.getElementById('initBtn');
-        const resetBtn = document.getElementById('resetBtn');
+/* ---------- rendering ---------- */
+function stepperHtml(job) {
+    const idx = stepIndex(job);
+    if (idx < 0) return "";
+    return `<div class="flex items-center gap-1 text-[10px] font-mono">` + STEPS.map((s, i) => {
+        const done = i < idx || idx === 4;
+        const cur = i === idx && idx < 4;
+        const cls = done ? "bg-emerald-400" : cur ? "bg-sky-400 animate-pulse" : "bg-slate-700";
+        const txt = done ? "text-emerald-300" : cur ? "text-sky-300" : "text-slate-600";
+        return `<span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full ${cls}"></span><span class="${txt}">${s}</span></span>` + (i < STEPS.length - 1 ? `<span class="text-slate-700">—</span>` : "");
+    }).join("") + `</div>`;
+}
 
-        if (initBtn) {
-            initBtn.disabled = true;
-            initBtn.textContent = 'Agent Executing...';
-            initBtn.classList.add('opacity-60', 'cursor-not-allowed');
-        }
-        if (resetBtn) resetBtn.classList.add('hidden');
+function logHtml(job, evs) {
+    if (!job) return `<div class="text-slate-500 italic">No run yet. Click Start.</div>`;
+    if (job.status === "queued") return `<div class="text-slate-500 italic">Waiting in the queue…</div>`;
+    if (!evs.length) return `<div class="text-slate-500 italic">Waiting for proxy events…</div>`;
+    return evs.slice(-60).map(e => `<div class="log-entry"><span class="text-slate-600">${evTime(e.ts)}</span> <span class="${EV_STYLE[e.type] || "text-slate-300"}">${esc(e.type)}</span> <span class="text-slate-500">${esc(e.host || "")}</span> <span class="text-slate-500">${esc(evDetail(e))}</span></div>`).join("");
+}
 
-        evaluatedPortals.clear();
+function resultHtml(job) {
+    if (!job || !["awaiting_review", "approved", "rejected"].includes(job.status)) return "";
+    const f = job.fields || {};
+    const inf = job.inference || {};
+    const border = job.suspicious ? "border-rose-500/50" : "border-emerald-500/40";
+    const model = inf.model ? `Vultr · ${esc(inf.model)}${inf.latency_ms != null ? " · " + esc(inf.latency_ms) + " ms" : ""}` : "";
+    const fields = job.extraction_failed
+        ? `<div class="text-amber-300 font-mono text-[11px]">Field extraction failed — open the PDF and check it manually.${inf.error ? `<div class="text-slate-500 mt-1 break-all">${esc(String(inf.error).slice(0, 140))}</div>` : ""}</div>`
+        : `<div class="grid grid-cols-3 gap-2 font-mono text-[11px]">
+             <div><div class="text-slate-500 text-[10px] uppercase">Vendor</div><div class="text-white font-semibold break-words">${esc(f.vendor ?? "—")}</div></div>
+             <div><div class="text-slate-500 text-[10px] uppercase">Amount</div><div class="text-emerald-300 font-bold break-words">${esc(f.amount ?? "—")}</div></div>
+             <div><div class="text-slate-500 text-[10px] uppercase">Invoice no.</div><div class="text-white font-semibold break-words">${esc(f.invoice_number ?? "—")}</div></div>
+           </div>`;
+    const flag = job.suspicious
+        ? `<div class="mt-2.5 text-rose-300 font-semibold text-[11px]">⚠ SUSPICIOUS — hidden instruction found in the PDF</div>
+           <blockquote class="mt-1.5 p-2 bg-rose-950/40 border-l-4 border-rose-500 text-[11px] font-mono text-rose-100 break-words">${esc(job.quote)}</blockquote>`
+        : `<div class="mt-2.5 text-emerald-400 font-semibold text-[11px]">✓ Clean — no injection patterns found</div>`;
+    return `<div class="bg-slate-900/90 border ${border} rounded-lg p-2.5 text-xs text-slate-200">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-[10px] font-mono uppercase tracking-wider ${job.suspicious ? "text-rose-400" : "text-emerald-400"} font-semibold">Extracted invoice fields</span>
+            <span class="text-[10px] font-mono text-slate-500">${model}</span>
+        </div>${fields}${flag}
+        <div class="mt-2.5 flex items-center justify-between text-[11px]">
+            <a href="/jobs/${encodeURIComponent(job.id)}/pdf" target="_blank" rel="noopener" class="text-sky-400 hover:text-sky-300 underline underline-offset-2">Open PDF</a>
+            <button data-action="events" data-id="${esc(job.id)}" class="text-slate-400 hover:text-slate-200 underline underline-offset-2">Event log</button>
+        </div></div>`;
+}
 
-        const terminal = document.getElementById('agentTerminal');
-        if (terminal) terminal.innerHTML = '';
-
-        logTerminal('AP AGENT INITIALIZED. Spawning ephemeral zero-trust container workers...', 'text-sky-400');
-        logTerminal('Universal Document Parser active: [.txt, .csv, .html, .pdf] engines online.', 'text-slate-400');
-
-        setTimeout(function () {
-            window.updatePortalStatus('portal1', 'processing', 'Connecting to Tiny Fox Press (TFP-01). Universal parser reading .txt file...');
-            logTerminal('[portal1] Connecting to TFP-01. Reading plaintext invoice stream...', 'text-sky-300');
-        }, 500);
-
-        setTimeout(function () {
-            window.updatePortalStatus('portal2', 'processing', 'Connecting to Featherproof Books (FPB-02). Reading .txt file...');
-            logTerminal('[portal2] Connecting to FPB-02. Ingesting plaintext invoice stream...', 'text-sky-300');
-        }, 1100);
-
-        setTimeout(function () {
-            window.updatePortalStatus('portal3', 'processing', 'Connecting to Melville House (MVH-03). Parsing .csv invoice table...');
-            logTerminal('[portal3] Connecting to MVH-03. Parsing .csv spreadsheet invoice table...', 'text-sky-300');
-        }, 1800);
-
-        setTimeout(function () {
-            window.updatePortalStatus('portal1', 'clean', 'Invoice INV-TFP-01 parsed: $18,450. Awaiting operator approval.');
-            logTerminal('[portal1] Invoice INV-TFP-01 verified ($18,450). Human-in-the-Loop review ready.', 'text-emerald-400');
-        }, 2400);
-
-        setTimeout(function () {
-            window.updatePortalStatus('portal4', 'processing', 'Connecting to Dalkey Archive Press (DAP-04). Ingesting .csv stream...');
-            logTerminal('[portal4] Connecting to DAP-04. Scanning data payload...', 'text-sky-300');
-        }, 3100);
-
-        setTimeout(function () {
-            window.updatePortalStatus('portal2', 'clean', 'Invoice INV-FPB-02 parsed: $9,230. Awaiting operator approval.');
-            logTerminal('[portal2] Invoice INV-FPB-02 verified ($9,230). Human-in-the-Loop review ready.', 'text-emerald-400');
-        }, 3700);
-
-        setTimeout(function () {
-            window.updatePortalStatus('portal4', 'critical', 'EGRESS BLOCKED: 185.23.50.50:80. iptables DROP enforced. Container Burned.');
-            logTerminal('[portal4] EGRESS BLOCKED: 185.23.50.50:80. iptables DROP enforced. Container Burned.', 'text-rose-400');
-        }, 4500);
-
-        setTimeout(function () {
-            window.updatePortalStatus('portal5', 'processing', 'Connecting to Smith, Elder & Co (SEC-05). Ingesting .html DOM...');
-            logTerminal('[portal5] Connecting to SEC-05. Ingesting .html DOM document...', 'text-sky-300');
-        }, 5100);
-
-        setTimeout(function () {
-            window.updatePortalStatus('portal3', 'clean', 'Invoice INV-MVH-03 parsed: $42,100. Awaiting operator approval.');
-            logTerminal('[portal3] Invoice INV-MVH-03 verified ($42,100). Human-in-the-Loop review ready.', 'text-emerald-400');
-        }, 5700);
-
-        setTimeout(function () {
-            window.updatePortalStatus('portal5', 'critical', 'EGRESS BLOCKED: 185.23.50.50:80. iptables DROP enforced. Container Burned.');
-            logTerminal('[portal5] EGRESS BLOCKED: 185.23.50.50:80. iptables DROP enforced. Container Burned.', 'text-rose-400');
-        }, 6400);
-
-        setTimeout(function () {
-            window.updatePortalStatus('portal6', 'processing', 'Connecting to Chronicle Books (CHB-06). Ingesting .pdf document...');
-            logTerminal('[portal6] Connecting to CHB-06. Extracting binary PDF document...', 'text-sky-300');
-        }, 7000);
-
-        setTimeout(function () {
-            window.updatePortalStatus('portal6', 'clean', 'Invoice INV-CHB-06 parsed: $12,680. Awaiting operator approval.');
-            logTerminal('[portal6] Invoice INV-CHB-06 verified ($12,680). Human-in-the-Loop review ready.', 'text-emerald-400');
-        }, 7700);
-
-        setTimeout(function () {
-            logTerminal('AP AGENT RUN COMPLETE. 4 invoices verified, 2 malicious egress threats contained. Ready for operator review.', 'text-emerald-400');
-            showCompletionPopup();
-            if (initBtn) {
-                initBtn.disabled = false;
-                initBtn.textContent = 'Initialize Accounts Payable Agent';
-                initBtn.classList.remove('opacity-60', 'cursor-not-allowed');
-            }
-            if (resetBtn) resetBtn.classList.remove('hidden');
-        }, 8300);
+function actionsHtml(job) {
+    if (!job) return "";
+    if (job.status === "awaiting_review") {
+        return `<div class="flex gap-2">
+            <button data-action="approve" data-id="${esc(job.id)}" class="flex-1 px-3 py-2 text-sm font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition">Approve</button>
+            <button data-action="reject" data-id="${esc(job.id)}" class="flex-1 px-3 py-2 text-sm font-semibold rounded-lg bg-rose-600 hover:bg-rose-500 text-white transition">Reject</button></div>`;
     }
-
-    // ============================================================
-    // Reset Simulation
-    // ============================================================
-    function resetSimulation() {
-        evaluatedPortals.clear();
-        hideIngestionPopup();
-
-        const scoreInvoices = document.getElementById('scoreInvoices');
-        const scoreInjections = document.getElementById('scoreInjections');
-        if (scoreInvoices) scoreInvoices.textContent = '0';
-        if (scoreInjections) scoreInjections.textContent = '0';
-
-        const portalIds = ['portal1', 'portal2', 'portal3', 'portal4', 'portal5', 'portal6'];
-        portalIds.forEach(function (pid) {
-            window.updatePortalStatus(pid, 'idle', '');
-            const popupEl = document.getElementById('popup-' + pid);
-            if (popupEl) popupEl.classList.add('hidden');
-            const dataEl = document.getElementById('data-' + pid);
-            if (dataEl) dataEl.classList.add('hidden');
-            const actionsEl = document.getElementById('actions-' + pid);
-            if (actionsEl) actionsEl.classList.add('hidden');
-            const logEl = document.getElementById('log-' + pid);
-            if (logEl) {
-                logEl.innerHTML = '<div class="text-slate-500 italic">Awaiting agent initialization...</div>';
-            }
-        });
-
-        const terminal = document.getElementById('agentTerminal');
-        if (terminal) {
-            terminal.innerHTML = '<span class="text-slate-600">[agent] Ready. Click "Initialize Accounts Payable Agent" to spawn worker containers...</span>';
-        }
-
-        const initBtn = document.getElementById('initBtn');
-        const resetBtn = document.getElementById('resetBtn');
-        if (initBtn) {
-            initBtn.disabled = false;
-            initBtn.textContent = 'Initialize Accounts Payable Agent';
-            initBtn.classList.remove('opacity-60', 'cursor-not-allowed');
-        }
-        if (resetBtn) resetBtn.classList.add('hidden');
+    if (job.decision) {
+        const ok = job.decision.decision === "approved";
+        return `<div class="text-xs rounded-lg px-3 py-2 border ${ok ? "text-emerald-300 bg-emerald-950/60 border-emerald-800/80" : "text-rose-300 bg-rose-950/60 border-rose-800/80"}">
+            <span class="font-semibold">${ok ? "Approved" : "Rejected"}</span> by operator · ${esc(isoTime(job.decision.decided_at))}
+            ${job.decision.comment ? `<div class="mt-1 text-slate-300 break-words">“${esc(job.decision.comment)}”</div>` : ""}</div>`;
     }
+    return "";
+}
 
-    // Event Listeners
-    document.getElementById('initBtn').addEventListener('click', runSimulation);
-    document.getElementById('resetBtn').addEventListener('click', resetSimulation);
+function failedHtml(job) {
+    if (!job || job.status !== "failed") return "";
+    return `<div class="bg-amber-950/40 border border-amber-700/60 rounded-lg p-2.5 text-xs text-amber-200 font-mono">
+        ${esc(FAIL_TEXT[job.error] || job.error || "Failed")}${job.exit_code != null ? ` (agent exit ${esc(job.exit_code)})` : ""}
+        <div class="text-slate-400 mt-1">The next portal was not affected.</div>
+        <div class="mt-1"><button data-action="events" data-id="${esc(job.id)}" class="text-slate-400 hover:text-slate-200 underline underline-offset-2">Event log</button></div></div>`;
+}
+
+function cardInner(p, job, evs) {
+    const si = statusInfo(job), t = TONES[si.tone];
+    const spin = si.tone === "running" ? `<svg class="spinner-svg w-3 h-3 text-sky-400" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>` : "";
+    return `
+      <div class="px-4 py-3.5 border-b border-slate-700/70 bg-slate-800/90">
+        <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5 min-w-0">
+                <span class="w-2.5 h-2.5 rounded-full shrink-0 ${t.dot}"></span>
+                <span class="text-sm font-semibold text-slate-100 truncate">${esc(p.name)}</span>
+            </div>
+            <span class="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border shrink-0 ${t.badge}">${spin}${esc(si.label)}</span>
+        </div>
+        <div class="mt-2 text-[11px] text-slate-500 font-mono">Last run: ${esc(p.last_run ? isoTime(p.last_run) : "never")}</div>
+      </div>
+      <div class="p-4 flex-1 flex flex-col space-y-3">
+        ${stepperHtml(job)}
+        <div data-role="log" class="h-28 overflow-y-auto bg-slate-900/70 border border-slate-700/60 rounded-lg p-2.5 font-mono text-[11px] text-slate-400 leading-relaxed space-y-0.5">${logHtml(job, evs)}</div>
+        ${resultHtml(job)}${failedHtml(job)}
+        <div class="mt-auto pt-1">${actionsHtml(job)}</div>
+      </div>`;
+}
+
+function renderCards() {
+    const grid = $("grid");
+    if (!state.portals.length) { grid.innerHTML = `<div class="text-sm text-slate-500 font-mono col-span-full">No portals configured (orchestrator/portals.json).</div>`; return; }
+    if (grid.querySelector("[data-loading]") || !grid.querySelector("[data-portal]")) grid.innerHTML = "";
+    for (const p of state.portals) {
+        const job = state.latest[p.id];
+        const evs = job ? (state.events[job.id] || []) : [];
+        const sig = JSON.stringify([p.name, p.last_run, job && [job.id, job.status, job.phase, job.suspicious, job.quote, job.fields, job.extraction_failed, job.error, job.decision, job.inference], evs.length]);
+        let el = grid.querySelector(`[data-portal="${CSS.escape(p.id)}"]`);
+        if (!el) { el = document.createElement("div"); el.setAttribute("data-portal", p.id); grid.appendChild(el); }
+        if (state.sig[p.id] === sig) continue;
+        state.sig[p.id] = sig;
+        const t = TONES[statusInfo(job).tone];
+        el.className = "bg-slate-800 border border-slate-700/80 rounded-xl overflow-hidden transition-all duration-300 relative flex flex-col shadow-md " + t.card;
+        el.innerHTML = cardInner(p, job, evs);
+        const lg = el.querySelector('[data-role="log"]'); if (lg) lg.scrollTop = lg.scrollHeight;
+    }
+}
+
+function renderScore() {
+    const jobs = state.portals.map(p => state.latest[p.id]).filter(Boolean);
+    const evs = jobs.flatMap(j => state.events[j.id] || []);
+    const done = jobs.filter(j => ["awaiting_review", "approved", "rejected"].includes(j.status));
+    const waiting = jobs.filter(j => j.status === "awaiting_review").length;
+    const ap = jobs.filter(j => j.status === "approved").length, rj = jobs.filter(j => j.status === "rejected").length;
+    $("scoreProcessed").textContent = done.length;
+    $("scoreProcessedSub").textContent = jobs.length ? `${waiting} awaiting review · ${ap} approved · ${rj} rejected` : "no run yet";
+    $("scoreFlagged").textContent = jobs.filter(j => j.suspicious).length;
+    $("scoreBlocked").textContent = countType(evs, "BLOCKED");
+    $("scoreCreds").textContent = countType(evs, "CREDENTIAL_INJECTED");
+    $("scoreCredsSub").textContent = `${countType(evs, "COOKIE_STRIPPED")} session cookies held by proxy`;
+    const busy = jobs.some(j => j.status === "queued" || j.status === "running");
+    $("startBtn").disabled = busy || !state.portals.length;
+    $("startBtn").textContent = busy ? "Running…" : "Start";
+}
+
+/* ---------- event log view ---------- */
+function renderLog() {
+    const jobs = [...state.jobs].reverse();
+    const tabs = $("logTabs");
+    if (!jobs.length) { tabs.innerHTML = ""; $("logBody").innerHTML = `<tr><td class="px-3 py-3 text-slate-500" colspan="4">No runs yet.</td></tr>`; $("logSummary").innerHTML = ""; $("logLinks").innerHTML = ""; return; }
+    if (!state.logSel || !jobs.find(j => j.id === state.logSel)) state.logSel = jobs[0].id;
+    tabs.innerHTML = jobs.map(j => {
+        const on = j.id === state.logSel;
+        return `<button data-action="logtab" data-id="${esc(j.id)}" class="px-3 py-1.5 text-xs rounded-lg border ${on ? "bg-sky-600 border-sky-500 text-white" : "bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-500"}">${esc(j.portal_name)} · ${esc(hhmmss(new Date(j.created_at * 1000)))}</button>`;
+    }).join("");
+    const sel = state.jobs.find(j => j.id === state.logSel);
+    ensureEvents(sel).then(evs => {
+        if (state.logSel !== sel.id) return;
+        const counts = {}; evs.forEach(e => counts[e.type] = (counts[e.type] || 0) + 1);
+        $("logSummary").innerHTML = Object.entries(counts).map(([k, v]) => `<span class="px-2 py-0.5 rounded-full border border-slate-700 bg-slate-800 ${EV_STYLE[k] || "text-slate-300"}">${esc(k)} × ${v}</span>`).join("");
+        $("logBody").innerHTML = evs.length ? evs.map(e => `<tr class="${e.type === "BLOCKED" ? "bg-rose-950/20" : ""}"><td class="px-3 py-1.5 text-slate-500 whitespace-nowrap">${esc(e.ts)}</td><td class="px-3 py-1.5 ${EV_STYLE[e.type] || "text-slate-300"} whitespace-nowrap">${esc(e.type)}</td><td class="px-3 py-1.5 text-slate-300">${esc(e.host || "")}</td><td class="px-3 py-1.5 text-slate-400">${esc(evDetail(e))}</td></tr>`).join("")
+            : `<tr><td class="px-3 py-3 text-slate-500" colspan="4">No proxy events recorded for this job yet.</td></tr>`;
+        $("logLinks").innerHTML = `Raw: <a class="underline text-sky-400" target="_blank" href="/events?job_id=${encodeURIComponent(sel.id)}">/events?job_id=${esc(sel.id)}</a> · <a class="underline text-sky-400" target="_blank" href="/jobs/${encodeURIComponent(sel.id)}">job result</a>`;
+    });
+}
+
+/* ---------- views ---------- */
+function route() {
+    const log = location.hash === "#log";
+    $("viewDash").classList.toggle("hidden", log);
+    $("viewLog").classList.toggle("hidden", !log);
+    $("navDash").className = "px-4 py-2.5 font-medium " + (log ? "text-slate-400 hover:text-white" : "bg-slate-700 text-white");
+    $("navLog").className = "px-4 py-2.5 font-medium " + (log ? "bg-slate-700 text-white" : "text-slate-400 hover:text-white");
+    if (log) renderLog();
+}
+
+/* ---------- polling ---------- */
+let polling = false;
+async function poll() {
+    if (polling) return; polling = true;
+    try {
+        const [portals, jobs] = await Promise.all([api("/portals"), api("/jobs")]);
+        setConn(true);
+        state.portals = portals; state.jobs = jobs;
+        state.latest = {}; jobs.forEach(j => { state.latest[j.portal_id] = j; });      // /jobs is oldest-first
+        await Promise.all(portals.map(p => ensureEvents(state.latest[p.id])));
+        if (state.first) term(`[ui] connected to the orchestrator · ${jobs.length} earlier job(s) on record`, "text-slate-500");
+        track(); renderCards(); renderScore();
+        if (location.hash === "#log") renderLog();
+    } catch (e) { setConn(false, e.message); }
+    finally { polling = false; }
+}
+
+/* ---------- actions ---------- */
+async function startRun() {
+    $("startBtn").disabled = true;
+    try {
+        const ps = state.portals.length ? state.portals : await api("/portals");
+        if (!ps.length) throw new Error("no portals configured");
+        await post("/jobs", { portals: ps.map(p => ({ portal_id: p.id })) });
+        toast("Run started");
+    } catch (e) { toast("Could not start: " + e.message, "error"); }
+    await poll();
+}
+async function decide(id, action, comment) {
+    try {
+        await post(`/jobs/${encodeURIComponent(id)}/${action}`, { comment: comment || "" });
+        toast(action === "approve" ? "Invoice approved" : "Invoice rejected");
+    } catch (e) { toast("Decision failed: " + e.message, "error"); }
+    await poll();
+}
+function openModal(id) { $(id).classList.remove("hidden"); }
+function closeModal(id) { $(id).classList.add("hidden"); }
+
+document.addEventListener("click", ev => {
+    const close = ev.target.closest("[data-close]");
+    if (close) return closeModal(close.getAttribute("data-close"));
+    if (ev.target.id === "aboutBtn") return openModal("aboutModal");
+    if (ev.target.id === "aboutModal" || ev.target.id === "rejectModal") return closeModal(ev.target.id);
+    const b = ev.target.closest("[data-action]"); if (!b) return;
+    const id = b.getAttribute("data-id"), act = b.getAttribute("data-action");
+    const job = state.jobs.find(j => j.id === id);
+    if (act === "approve") {
+        if (job && job.suspicious && !confirm("This invoice was flagged as suspicious (hidden instruction in the PDF).\n\nApprove it anyway?")) return;
+        decide(id, "approve");
+    } else if (act === "reject") {
+        state.rejectId = id; $("rejectComment").value = "";
+        $("rejectFor").textContent = job ? job.portal_name + (job.fields && job.fields.invoice_number ? " · " + job.fields.invoice_number : "") : id;
+        openModal("rejectModal"); $("rejectComment").focus();
+    } else if (act === "events") {
+        state.logSel = id; location.hash = "#log";
+    } else if (act === "logtab") {
+        state.logSel = id; renderLog();
+    }
+});
+$("rejectConfirm").addEventListener("click", () => { const id = state.rejectId; closeModal("rejectModal"); if (id) decide(id, "reject", $("rejectComment").value.trim()); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") { closeModal("aboutModal"); closeModal("rejectModal"); } });
+$("startBtn").addEventListener("click", startRun);
+window.addEventListener("hashchange", route);
+
+route(); poll(); setInterval(poll, POLL_MS);
 </script>
 </body>
 </html>

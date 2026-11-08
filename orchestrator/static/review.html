@@ -1,0 +1,60 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Portal Courier</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body{font:15px system-ui,sans-serif;margin:0;background:#f4f5f7;color:#1c2330}
+header{background:#1c2330;color:#fff;padding:14px 24px;display:flex;gap:16px;align-items:center}
+header h1{font-size:18px;margin:0;flex:1}
+main{max-width:980px;margin:20px auto;padding:0 16px}
+button{border:0;border-radius:6px;padding:8px 16px;font-size:14px;cursor:pointer}
+.start{background:#2f9e44;color:#fff;font-weight:600}.ok{background:#2f9e44;color:#fff}.no{background:#c92a2a;color:#fff}
+.card,.row{background:#fff;border-radius:8px;padding:14px 18px;margin:10px 0;box-shadow:0 1px 3px #0002}
+.row{display:flex;gap:12px;align-items:center}.row .n{flex:1;font-weight:600}
+.pill{padding:2px 10px;border-radius:12px;font-size:12px;background:#dee2e6}
+.s-running{background:#ffe066}.s-awaiting_review{background:#a5d8ff}.s-approved{background:#b2f2bb}.s-rejected,.s-failed{background:#ffc9c9}
+.flag-clean{color:#2b8a3e;font-weight:600}.flag-sus{color:#c92a2a;font-weight:600}
+blockquote{margin:8px 0;padding:8px 12px;background:#fff0f0;border-left:4px solid #c92a2a;word-break:break-word}
+table{border-collapse:collapse;width:100%;font-size:13px}td,th{text-align:left;padding:3px 8px;border-bottom:1px solid #eee}
+.BLOCKED{color:#c92a2a;font-weight:700}h2{margin-top:28px}.muted{color:#667}
+</style></head><body>
+<header><h1>Portal Courier</h1><button class="start" id="start">Start</button></header>
+<main>
+<h2>This month's portals</h2><div id="portals"></div>
+<h2>Results</h2><div id="cards" class="muted">Nothing yet.</div>
+<h2>Event log <span class="muted" id="evlabel"></span></h2><div id="events" class="card muted">Select "Event log" on a card.</div>
+</main>
+<script>
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let selected=null;
+const api=(p,o)=>fetch(p,o).then(r=>r.json());
+async function start(){
+  const ps=await api("/portals");
+  await api("/jobs",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({portals:ps.map(p=>({portal_id:p.id}))})});
+  refresh();
+}
+async function decide(id,act){
+  const comment=act==="reject"?(prompt("Reason for rejecting:")||""):"";
+  await api(`/jobs/${id}/${act}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({comment})});
+  refresh();
+}
+async function showEvents(id){selected=id;refresh();}
+async function refresh(){
+  const [ps,jobs]=await Promise.all([api("/portals"),api("/jobs")]);
+  const latest={};jobs.forEach(j=>latest[j.portal_id]=j);
+  document.getElementById("portals").innerHTML=ps.map(p=>{const j=latest[p.id];
+    const st=j?(j.phase||j.status):"-";
+    return `<div class="row"><span class="n">${esc(p.name)}</span><span class="muted">last run: ${esc(p.last_run||"never")}</span><span class="pill s-${esc(j?.status)}">${esc(st)}</span></div>`}).join("");
+  const done=jobs.filter(j=>!["queued","running"].includes(j.status)).reverse();
+  document.getElementById("cards").innerHTML=done.length?done.map(j=>{
+    const f=j.fields||{};
+    const flag=j.suspicious?`<span class="flag-sus">SUSPICIOUS</span>`:`<span class="flag-clean">clean</span>`;
+    const body=j.status==="failed"?`<p>Download failed: ${esc(j.error)} (exit ${esc(j.exit_code)})</p>`:`
+      <p>${j.extraction_failed?"<i>Field extraction failed</i>":`Vendor: <b>${esc(f.vendor)}</b> &nbsp; Amount: <b>${esc(f.amount)}</b> &nbsp; Invoice no: <b>${esc(f.invoice_number)}</b>`}</p>
+      <p>${flag} ${j.quote?`<blockquote>${esc(j.quote)}</blockquote>`:""} <a href="/jobs/${esc(j.id)}/pdf" target="_blank">Open PDF</a></p>`;
+    const btn=j.status==="awaiting_review"?`<button class="ok" onclick="decide('${esc(j.id)}','approve')">Approve</button> <button class="no" onclick="decide('${esc(j.id)}','reject')">Reject</button>`:`<span class="pill s-${esc(j.status)}">${esc(j.status)}</span> ${esc(j.decision?.comment||"")}`;
+    return `<div class="card"><b>${esc(j.portal_name)}</b> ${body}${btn} <button onclick="showEvents('${esc(j.id)}')">Event log</button></div>`}).join(""):"Nothing yet.";
+  if(selected){const ev=await api(`/events?job_id=${encodeURIComponent(selected)}`);
+    document.getElementById("evlabel").textContent=selected;
+    document.getElementById("events").innerHTML=`<table><tr><th>time</th><th>event</th><th>host</th><th>detail</th></tr>${ev.map(e=>`<tr><td>${esc(e.ts)}</td><td class="${esc(e.type)}">${esc(e.type)}</td><td>${esc(e.host)}</td><td>${esc([e.method,e.path,e.reason,e.cookie_name].filter(Boolean).join(" "))}</td></tr>`).join("")}</table>`;}
+}
+document.getElementById("start").onclick=start;refresh();setInterval(refresh,1500);
+</script></body></html>

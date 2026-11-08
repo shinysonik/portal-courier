@@ -1,4 +1,3 @@
-@"
 .env
 .venv/
 venv/
@@ -9,7 +8,8 @@ __pycache__/
 !testdata/**/*.pdf
 events.jsonl
 out/
+out_*/
+jobs/
 .DS_Store
 node_modules/
 *.log
-"@ | Set-Content -Encoding ASCII .gitignore

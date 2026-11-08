@@ -55,7 +55,22 @@ test_tcp_connection() {
 # Test 1: Direct WAN Egress (Must Fail)
 # ------------------------------------------------------------------------------
 echo -n "[1/4] Testing direct external WAN egress (https://1.1.1.1)... "
-if curl -s -k --connect-timeout "${TIMEOUT_SEC}" --max-time "${TIMEOUT_SEC}" https://1.1.1.1 >/dev/null 2>&1; then
+# --noproxy '*': the container has HTTPS_PROXY set, so a plain curl would go through the MITM proxy
+# and "pass" because the PROXY refused it - that would not prove the iptables rule works.
+direct_https() {
+    if command -v curl >/dev/null 2>&1; then
+        curl -s -k --noproxy '*' --connect-timeout "${TIMEOUT_SEC}" --max-time "${TIMEOUT_SEC}" https://1.1.1.1 >/dev/null 2>&1
+    elif command -v python3 >/dev/null 2>&1; then
+        python3 -c "import socket; s=socket.socket(); s.settimeout(${TIMEOUT_SEC}); s.connect(('1.1.1.1',443)); s.close()" >/dev/null 2>&1
+    else
+        echo -n "(no curl or python3 to test with) "; return 2   # 2 = cannot test, must not count as a pass
+    fi
+}
+direct_https; rc=$?
+if [ "${rc}" -eq 2 ]; then
+    echo "SKIPPED"
+    FAILED_TESTS=$((FAILED_TESTS + 1))
+elif [ "${rc}" -eq 0 ]; then
     echo "FAILED! (CRITICAL LEAK: Direct internet egress is allowed)"
     FAILED_TESTS=$((FAILED_TESTS + 1))
 else

@@ -25,7 +25,7 @@ from mitmproxy import http, ctx
 
 ALLOWED_HOSTS = {
     h.strip()
-    for h in os.getenv("ALLOWED_HOSTS", "localhost:5001,localhost:5002,localhost:3000").split(",")
+    for h in os.getenv("ALLOWED_HOSTS", "localhost:5001,localhost:5002,localhost:3000,127.0.0.1:5001,127.0.0.1:5002").split(",")
     if h.strip()
 }
 
@@ -74,6 +74,20 @@ def request_path_only(flow: http.HTTPFlow) -> str:
 # --- Addon
 
 class PortalCourierProxy:
+    def http_connect(self, flow: http.HTTPFlow) -> None:
+        """HTTPS tunnels (CONNECT). Block + log BEFORE mitmproxy tries to reach the upstream host.
+        Without this, unresolvable hosts (attacker.example) fail silently inside mitmproxy and never
+        reach request(), so only 1 of the 5 exfiltration attempts would be logged as BLOCKED."""
+        host = host_of(flow)
+        if host not in ALLOWED_HOSTS:
+            log_event("BLOCKED", host=host, method="CONNECT", path="",
+                      reason="host_not_in_allowlist")
+            flow.response = http.Response.make(
+                403,
+                b"Blocked by Portal Courier proxy: host not in allowlist\n",
+                {"Content-Type": "text/plain"},
+            )
+
     def request(self, flow: http.HTTPFlow) -> None:
         host = host_of(flow)
 
