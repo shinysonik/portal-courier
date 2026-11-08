@@ -358,7 +358,7 @@ Target user: an AP specialist in a 50-500 person company. Assumption: 4 hours a 
 
 ### Team
 
-Sofia Shevelo (Captain, team lead and architect), Zaid Sohail, SK Aman Akmal, Muhammad Umair, Hassan Memon, Talha Abid.
+Sofia Shevelo (Captain, team lead and architect), Zaid Sohail, SK Aman Akmal, Muhammad Umair.
 
 | Area | Owner |
 |---|---|

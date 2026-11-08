@@ -4,7 +4,7 @@
 **Live URL:** `http://65.20.80.6:8000/`  
 **Deployment:** Vultr Cloud Compute (`vc2-2c-4gb`, Ubuntu 24.04 LTS)  
 **LLM Engine:** Vultr Serverless Inference (`qwen3.8-27b`)  
-**Team:** Sofia Shevelo (Captain), Sk Aman Akmal, Zaid Sohail, Muhammad Umair, Hassan Memon, Talha Abid  
+**Team:** Sofia Shevelo (Captain), Sk Aman Akmal, Zaid Sohail, Muhammad Umair  
 
 ---
 
@@ -60,7 +60,7 @@ style: |
 **Challenge 1:** Blast Radius Zero  
 **Live URL:** http://65.20.80.6:8000/  
 **Infrastructure:** Vultr Cloud Compute + Vultr Serverless Inference (`qwen3.8-27b`)  
-**Team:** Sofia Shevelo (Captain), Sk Aman Akmal, Zaid Sohail, Muhammad Umair, Hassan Memon, Talha Abid  
+**Team:** Sofia Shevelo (Captain), Sk Aman Akmal, Zaid Sohail, Muhammad Umair  
 
 ---
 
