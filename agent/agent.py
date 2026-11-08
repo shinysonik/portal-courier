@@ -189,8 +189,8 @@ def do_login(page, cfg: dict) -> None:
 
 
 def find_download_trigger(page):
-    """First link/button/clickable element whose text contains download, pdf, csv, txt, or invoice."""
-    pattern = re.compile(r"download|pdf|csv|txt|html|invoice|export", re.I)
+    """First link/button/clickable element whose text contains download, pdf, or file extensions."""
+    pattern = re.compile(r"download|pdf|\.csv|\.txt|\.html|\.json", re.I)
     for sel in ("a", "button", "[onclick]", "span"):
         loc = page.locator(sel).filter(has_text=pattern)
         if loc.count() > 0:
@@ -249,33 +249,33 @@ def do_download(page, cfg: dict) -> dict | None:
     # Register BEFORE any click that may trigger a confirm() (hostile portal).
     page.on("dialog", lambda d: d.accept())
 
+    # Period-picker portals (hostile): select year + month, show invoices, then download.
+    year_sel = page.locator('select[name="year"]')
+    month_sel = page.locator('select[name="month"]')
+    if year_sel.count() > 0 and month_sel.count() > 0:
+        log(f"selecting period {INVOICE_YEAR}/{INVOICE_MONTH}")
+        year_sel.first.select_option(INVOICE_YEAR, timeout=remaining_ms(10))
+        month_sel.first.select_option(INVOICE_MONTH, timeout=remaining_ms(10))
+        page.get_by_role("button", name=re.compile(r"show invoices", re.I)).first.click(timeout=remaining_ms(10))
+
+        # Do NOT wait for network idle: this page fires slow requests (the exfil attempts).
+        # Wait for the download link itself.
+        pattern = re.compile(r"download|pdf|\.csv|\.txt|\.html|\.json", re.I)
+        link = page.locator("a, button, [onclick], span").filter(has_text=pattern).first
+        try:
+            link.wait_for(state="visible", timeout=remaining_ms(20))
+        except PlaywrightTimeout:
+            raise AgentError(EXIT_DOWNLOAD_FAILED, "no invoice download link appeared for the period")
+        log("download link visible, clicking (confirm dialog will be accepted)")
+        return click_and_capture(page, link, cfg["out_dir"])
+
     # Flat portals (good): a download trigger is already on the post-login page.
     trigger = find_download_trigger(page)
     if trigger is not None:
         log("download trigger found on landing page")
         return click_and_capture(page, trigger, cfg["out_dir"])
 
-    # Period-picker portals (hostile): select year + month, show invoices, then download.
-    year_sel = page.locator('select[name="year"]')
-    month_sel = page.locator('select[name="month"]')
-    if year_sel.count() == 0 or month_sel.count() == 0:
-        raise AgentError(EXIT_DOWNLOAD_FAILED, "no download link and no period picker found")
-
-    log(f"selecting period {INVOICE_YEAR}/{INVOICE_MONTH}")
-    year_sel.first.select_option(INVOICE_YEAR, timeout=remaining_ms(10))
-    month_sel.first.select_option(INVOICE_MONTH, timeout=remaining_ms(10))
-    page.get_by_role("button", name=re.compile(r"show invoices", re.I)).first.click(timeout=remaining_ms(10))
-
-    # Do NOT wait for network idle: this page fires slow requests (the exfil attempts).
-    # Wait for the download link itself.
-    pattern = re.compile(r"download|pdf|csv|txt|html|invoice|export", re.I)
-    link = page.locator("a, button, [onclick], span").filter(has_text=pattern).first
-    try:
-        link.wait_for(state="visible", timeout=remaining_ms(20))
-    except PlaywrightTimeout:
-        raise AgentError(EXIT_DOWNLOAD_FAILED, "no invoice download link appeared for the period")
-    log("download link visible, clicking (confirm dialog will be accepted)")
-    return click_and_capture(page, link, cfg["out_dir"])
+    raise AgentError(EXIT_DOWNLOAD_FAILED, "no download link and no period picker found")
 
 
 # ---- main -------------------------------------------------------------------

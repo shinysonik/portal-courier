@@ -22,6 +22,9 @@ for j in cur:
     print("   events:", ev)
 if "--decide" in sys.argv:
     for j in cur:
-        act = "reject" if j["suspicious"] else "approve"
-        r = c.post(f"/jobs/{j['id']}/{act}", json={"comment": "smoke test"})
-        print(act, j["portal_id"], "->", r.json()["status"])
+        if j.get("status") == "awaiting_review":
+            act = "reject" if j.get("suspicious") else "approve"
+            r = c.post(f"/jobs/{j['id']}/{act}", json={"comment": "smoke test"})
+            print(act, j["portal_id"], "->", r.json().get("status", r.text))
+        else:
+            print("skip decision for", j["portal_id"], f"(status: {j.get('status')})")
