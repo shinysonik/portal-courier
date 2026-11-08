@@ -46,7 +46,8 @@ EXIT_UNKNOWN = 10
 # ---- constants --------------------------------------------------------------
 TOTAL_TIMEOUT_S = 60          # hard cap for the whole run
 LOGIN_SIGNAL_TIMEOUT_S = 15   # wait for the post-login success signal
-PDF_NAME = "invoice.pdf"
+DEFAULT_INVOICE_NAME = "invoice.pdf"
+PDF_NAME = DEFAULT_INVOICE_NAME  # alias for backward compatibility
 INVOICE_YEAR = "2026"         # period-picker portals (hostile): fixed per the brief
 INVOICE_MONTH = "10"
 
@@ -188,8 +189,8 @@ def do_login(page, cfg: dict) -> None:
 
 
 def find_download_trigger(page):
-    """First link/button/clickable element whose text contains Download or PDF."""
-    pattern = re.compile(r"download|pdf", re.I)
+    """First link/button/clickable element whose text contains download, pdf, csv, txt, or invoice."""
+    pattern = re.compile(r"download|pdf|csv|txt|html|invoice|export", re.I)
     for sel in ("a", "button", "[onclick]", "span"):
         loc = page.locator(sel).filter(has_text=pattern)
         if loc.count() > 0:
@@ -197,21 +198,54 @@ def find_download_trigger(page):
     return None
 
 
-def click_and_capture(page, trigger, out_dir: Path) -> str | None:
-    """Click inside expect_download (never poll the filesystem). Returns invoice id if parseable."""
+def click_and_capture(page, trigger, out_dir: Path) -> dict:
+    """Click inside expect_download (never poll the filesystem). Returns invoice metadata."""
     with page.expect_download(timeout=remaining_ms(30)) as dl_info:
         trigger.click(timeout=remaining_ms(10))
     download = dl_info.value
-    target = out_dir / PDF_NAME
+
+    # Universal file handling: determine filename from suggested_filename or URL
+    suggested = download.suggested_filename
+    if suggested:
+        filename = Path(suggested).name
+    else:
+        url_part = Path(download.url.split("?")[0].rstrip("/")).name
+        if "." in url_part and len(url_part.rsplit(".", 1)[1]) <= 5:
+            filename = url_part
+        else:
+            filename = DEFAULT_INVOICE_NAME
+
+    if not filename or filename == ".":
+        filename = DEFAULT_INVOICE_NAME
+
+    target = out_dir / filename
     download.save_as(str(target))
-    with open(target, "rb") as f:
-        if f.read(4) != b"%PDF":
-            raise AgentError(EXIT_DOWNLOAD_FAILED, "downloaded file is not a PDF")
-    m = re.search(r"/invoice/(.+?)/download", download.url)
-    return m.group(1) if m else None
+
+    # Backward compatibility: if it is a PDF not named invoice.pdf, also copy as invoice.pdf
+    if target.suffix.lower() == ".pdf" and target.name != DEFAULT_INVOICE_NAME:
+        try:
+            import shutil
+            shutil.copyfile(target, out_dir / DEFAULT_INVOICE_NAME)
+        except Exception:
+            pass
+
+    # Ensure file is not 0 bytes
+    if not target.exists() or target.stat().st_size == 0:
+        raise AgentError(EXIT_DOWNLOAD_FAILED, f"downloaded file '{filename}' is empty")
+
+    # If it is explicitly a .pdf, verify valid %PDF magic bytes
+    if target.suffix.lower() == ".pdf":
+        with open(target, "rb") as f:
+            if f.read(4) != b"%PDF":
+                raise AgentError(EXIT_DOWNLOAD_FAILED, f"downloaded file '{filename}' lacks %PDF header")
+
+    m = re.search(r"/invoice/(.+?)(?:/download)?$", download.url)
+    invoice_id = m.group(1) if m else None
+    log(f"captured universal invoice download: {filename} ({target.stat().st_size} bytes)")
+    return {"invoice_id": invoice_id, "filename": filename}
 
 
-def do_download(page, cfg: dict) -> str | None:
+def do_download(page, cfg: dict) -> dict | None:
     # Register BEFORE any click that may trigger a confirm() (hostile portal).
     page.on("dialog", lambda d: d.accept())
 
@@ -234,7 +268,7 @@ def do_download(page, cfg: dict) -> str | None:
 
     # Do NOT wait for network idle: this page fires slow requests (the exfil attempts).
     # Wait for the download link itself.
-    pattern = re.compile(r"download|pdf", re.I)
+    pattern = re.compile(r"download|pdf|csv|txt|html|invoice|export", re.I)
     link = page.locator("a, button, [onclick], span").filter(has_text=pattern).first
     try:
         link.wait_for(state="visible", timeout=remaining_ms(20))
@@ -259,7 +293,7 @@ def run() -> int:
         ]
         log("routing browser traffic through the proxy")
 
-    invoice_id = None
+    dl_meta = None
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=launch_args)
         page = None
@@ -267,7 +301,7 @@ def run() -> int:
             context = browser.new_context(accept_downloads=True)
             page = context.new_page()
             do_login(page, cfg)
-            invoice_id = do_download(page, cfg)
+            dl_meta = do_download(page, cfg)
         except PlaywrightTimeout as exc:
             if page:
                 save_debug(page, cfg["out_dir"])
@@ -282,8 +316,12 @@ def run() -> int:
             except Exception:
                 pass
 
-    if invoice_id:
-        print(json.dumps({"invoice_id": invoice_id}), flush=True)
+    if isinstance(dl_meta, dict):
+        out_payload = {k: v for k, v in dl_meta.items() if v is not None}
+        if out_payload:
+            print(json.dumps(out_payload), flush=True)
+    elif dl_meta:
+        print(json.dumps({"invoice_id": str(dl_meta)}), flush=True)
     log("done")
     return EXIT_OK
 

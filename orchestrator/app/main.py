@@ -12,6 +12,7 @@ Run from the repo root:  uvicorn orchestrator.app.main:app --port 8000
 """
 
 import calendar
+from html.parser import HTMLParser
 import json
 import os
 import queue
@@ -147,6 +148,17 @@ def parse_stdout(stdout: str) -> Optional[str]:
     return None
 
 
+def parse_stdout_meta(stdout: str) -> dict:
+    for line in reversed(stdout.strip().splitlines()):
+        try:
+            data = json.loads(line)
+            if isinstance(data, dict):
+                return data
+        except ValueError:
+            continue
+    return {}
+
+
 def run_agent_docker(job: dict, job_dir: Path) -> dict:
     import docker  # imported lazily so RUNNER=local works without a Docker daemon
 
@@ -215,10 +227,82 @@ def run_agent_local(job: dict, job_dir: Path) -> dict:
         return {"exit_code": 3, "stdout": "", "stderr": f"killed after {RUN_TIMEOUT_S}s", "timed_out": True}
 
 
-# ---- PDF analysis -----------------------------------------------------------
-def extract_pdf_text(pdf_path: Path) -> str:
-    with pdfplumber.open(pdf_path) as pdf:
-        return "\n".join((page.extract_text() or "") for page in pdf.pages)
+# ---- Universal Document Ingestion & Analysis --------------------------------
+class _HTMLTextExtractor(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.text_parts = []
+
+    def handle_data(self, data):
+        self.text_parts.append(data)
+
+    def get_text(self) -> str:
+        return "\n".join(" ".join(self.text_parts).splitlines())
+
+
+def extract_document_text(file_path: Path) -> str:
+    """Universally extracts clean text across PDF, CSV, TXT, HTML, JSON."""
+    ext = file_path.suffix.lower()
+    if ext == ".pdf":
+        try:
+            with pdfplumber.open(file_path) as pdf:
+                return "\n".join((page.extract_text() or "") for page in pdf.pages)
+        except Exception as e:
+            return f"[PDF Extraction Warning: {e}]"
+    elif ext in (".html", ".htm"):
+        raw = file_path.read_text(encoding="utf-8", errors="replace")
+        try:
+            parser = _HTMLTextExtractor()
+            parser.feed(raw)
+            clean = parser.get_text()
+            return clean if clean.strip() else raw
+        except Exception:
+            return raw
+    elif ext in (".txt", ".csv", ".json", ".xml", ".tsv", ".log"):
+        return file_path.read_text(encoding="utf-8", errors="replace")
+    else:
+        try:
+            return file_path.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            return ""
+
+
+# Backward compatibility alias
+extract_pdf_text = extract_document_text
+
+
+def find_downloaded_file(job_dir: Path, hint: Optional[str] = None) -> Optional[Path]:
+    """Locates the captured invoice regardless of file format (.pdf, .txt, .csv, .html)."""
+    if hint:
+        p = job_dir / hint
+        if p.is_file() and p.stat().st_size > 0:
+            return p
+
+    allowed_exts = {".pdf", ".txt", ".csv", ".html", ".htm", ".json", ".xml", ".tsv"}
+    excluded_names = {"agent.log", "events.json", "result.json", "result.json.tmp", "debug.png"}
+
+    # 1. Standard invoice names
+    for ext in (".pdf", ".txt", ".csv", ".html", ".json"):
+        cand = job_dir / f"invoice{ext}"
+        if cand.is_file() and cand.stat().st_size > 0:
+            return cand
+
+    # 2. Files starting with invoice
+    for cand in sorted(job_dir.glob("invoice*")):
+        if cand.is_file() and cand.suffix.lower() in allowed_exts and cand.stat().st_size > 0:
+            return cand
+
+    # 3. Any non-system file in job_dir
+    for cand in sorted(job_dir.iterdir()):
+        if cand.is_file() and cand.name not in excluded_names and cand.stat().st_size > 0:
+            return cand
+
+    # 4. Fallback if invoice.pdf exists
+    fallback = job_dir / "invoice.pdf"
+    if fallback.is_file():
+        return fallback
+
+    return None
 
 
 def check_injection(text: str) -> dict:
@@ -335,8 +419,10 @@ def process_job(job: dict) -> None:
     (job_dir / "agent.log").write_text(run["stderr"], encoding="utf-8")
     time.sleep(1.2)                                   # let the proxy flush its last events
     finished = now()
-    update(job, agent_finished_at=finished, exit_code=run["exit_code"],
-           invoice_id=parse_stdout(run["stdout"]))
+    meta = parse_stdout_meta(run["stdout"])
+    invoice_id = meta.get("invoice_id") or parse_stdout(run["stdout"])
+    filename_hint = meta.get("filename")
+    update(job, agent_finished_at=finished, exit_code=run["exit_code"], invoice_id=invoice_id)
     (job_dir / "events.json").write_text(json.dumps(events_for(job), indent=2), encoding="utf-8")
 
     if run["exit_code"] != 0:
@@ -344,14 +430,15 @@ def process_job(job: dict) -> None:
                error=EXIT_REASONS.get(run["exit_code"], "unknown_error"))
         return
 
-    pdf = job_dir / "invoice.pdf"
-    if not pdf.exists():
+    doc = find_downloaded_file(job_dir, filename_hint)
+    if not doc or not doc.exists():
         update(job, status="failed", phase=None, error="download_failed")
         return
 
-    update(job, phase="analyzing", pdf="invoice.pdf")
-    text = extract_pdf_text(pdf)
-    flag = check_injection(text)                      # flags only - nothing in the PDF is ever executed
+    file_ext = doc.suffix.lower().lstrip(".")
+    update(job, phase="analyzing", pdf=doc.name, file_name=doc.name, file_type=file_ext)
+    text = extract_document_text(doc)
+    flag = check_injection(text)                      # flags only - nothing in untrusted doc is ever executed
     update(job, **flag)
     inf = extract_fields(text)                        # the mandatory Vultr Serverless Inference call
     update(job, fields=inf["fields"], extraction_failed=inf["extraction_failed"],
@@ -484,12 +571,24 @@ def job_detail(job_id: str):
 
 
 @app.get("/jobs/{job_id}/pdf")
+@app.get("/jobs/{job_id}/file")
 def job_pdf(job_id: str):
     job = get_job(job_id)
-    pdf = OUT_ROOT / job["id"] / "invoice.pdf"
-    if not pdf.exists():
-        raise HTTPException(404, "no PDF for this job")
-    return FileResponse(pdf, media_type="application/pdf", filename=f"{job['id']}.pdf",
+    job_dir = OUT_ROOT / job["id"]
+    doc = find_downloaded_file(job_dir, job.get("file_name") or job.get("pdf"))
+    if not doc or not doc.exists():
+        raise HTTPException(404, "no invoice file for this job")
+
+    media_types = {
+        ".pdf": "application/pdf",
+        ".txt": "text/plain; charset=utf-8",
+        ".csv": "text/csv; charset=utf-8",
+        ".html": "text/html; charset=utf-8",
+        ".htm": "text/html; charset=utf-8",
+        ".json": "application/json; charset=utf-8",
+    }
+    media_type = media_types.get(doc.suffix.lower(), "application/octet-stream")
+    return FileResponse(doc, media_type=media_type, filename=doc.name,
                         content_disposition_type="inline")
 
 
@@ -522,6 +621,11 @@ def events(job_id: Optional[str] = None):
 @app.get("/")
 def index():
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/dashboard")
+def dashboard():
+    return FileResponse(STATIC_DIR / "dashboard-mockup.html")
 
 
 @app.get("/review")

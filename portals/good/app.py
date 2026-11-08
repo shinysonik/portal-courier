@@ -425,6 +425,7 @@ async def invoice_detail(
 @app.get("/invoice/{invoice_id}/download")
 async def invoice_download(
     invoice_id: str,
+    format: str | None = None,
     session: str | None = Cookie(default=None),
 ):
     s = get_session(session)
@@ -435,16 +436,41 @@ async def invoice_download(
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
-    pdf_bytes = render_invoice_pdf(inv)
-    filename = invoice_id.replace("/", "_") + ".pdf"
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
-            "Cache-Control": "no-store",
-        },
-    )
+    fmt = (format or "pdf").lower()
+    clean_id = invoice_id.replace("/", "_")
+
+    if fmt == "csv":
+        csv_data = f"Invoice,Vendor,IssueDate,DueDate,Amount,Currency,Status\n{inv['id']},\"{VENDOR['name']}\",{inv['issue_date']},{inv['due_date']},{inv['amount_gross']},{inv['currency']},{inv['status']}\n"
+        return Response(
+            content=csv_data,
+            media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="{clean_id}.csv"', "Cache-Control": "no-store"},
+        )
+    elif fmt == "txt":
+        txt_data = f"INVOICE {inv['id']}\nVendor: {VENDOR['name']}\nDate: {inv['issue_date']}\nDue: {inv['due_date']}\nTotal: {inv['amount_gross']:.2f} {inv['currency']}\nStatus: {inv['status']}\n"
+        return Response(
+            content=txt_data,
+            media_type="text/plain",
+            headers={"Content-Disposition": f'attachment; filename="{clean_id}.txt"', "Cache-Control": "no-store"},
+        )
+    elif fmt in ("html", "htm"):
+        html_data = f"<!DOCTYPE html><html><body><h1>INVOICE {inv['id']}</h1><p>Vendor: {VENDOR['name']}</p><p>Total: {inv['amount_gross']:.2f} {inv['currency']}</p><p>Status: {inv['status']}</p></body></html>"
+        return Response(
+            content=html_data,
+            media_type="text/html",
+            headers={"Content-Disposition": f'attachment; filename="{clean_id}.html"', "Cache-Control": "no-store"},
+        )
+    else:
+        pdf_bytes = render_invoice_pdf(inv)
+        filename = clean_id + ".pdf"
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Cache-Control": "no-store",
+            },
+        )
 
 
 @app.get("/api/invoices")
