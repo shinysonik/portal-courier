@@ -20,7 +20,7 @@ To simulate a realistic, messy environment, we use two different tech stacks (Py
 ## 2. What's Inside the Node.js Folder
 
 - **`server.js`** — Single-file Express server simulating the 6 publisher portals. Features multi-format invoice generation, live HTTP logging, dual-stack `::` listening, and malicious egress simulation.
-- **`dashboard.html`** — Single-file AI Agent Hackathon Dashboard. Features real-time state machine simulation, 2x3 portal grid, dynamic ingestion popups, live telemetry metrics, and a left slide-over drawer with the Team Dossier.
+- **`dashboard.html`** — Single-file AI Agent Hackathon Dashboard. Features real-time state machine working, 2x3 portal grid, dynamic ingestion popups, live telemetry metrics.
 - **`start.bat`** — Automated Windows launcher. Resolves WinGet Node.js LTS installations, launches default browser tabs for the portals and dashboard, and runs the server.
 - **`package.json` & `package-lock.json`** — Lightweight npm configuration (Express only).
 
