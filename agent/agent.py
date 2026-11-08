@@ -139,6 +139,10 @@ def do_login(page, cfg: dict) -> None:
     log("opening portal login page")
     page.goto(cfg["portal_url"], wait_until="domcontentloaded", timeout=remaining_ms(20))
 
+    if login_succeeded(page):
+        log(f"already logged in (url: {page.url})")
+        return
+
     pw_field = page.locator('input[type="password"]').first
     if pw_field.count() == 0:
         raise AgentError(EXIT_LOGIN_FAILED, "no password field on the login page")
